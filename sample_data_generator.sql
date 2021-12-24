@@ -1,25 +1,4 @@
-
-CREATE OR REPLACE FUNCTION CREATE_BATCH_DEPT_FOR_SAMPLE(
-    batchId number,
-    departmentId number,
-    batchName BATCH.name%TYPE,
-    deptName DEPARTMENT.name%TYPE
-)
-RETURN BATCHDEPT%rowtype
-AS
-
-    groupId number;
-    batchDeptRow BATCHDEPT%rowtype;
-BEGIN
-    INSERT INTO pGroup(Name) VALUES
-    (deptName || '-' || batchName) returning group_id INTO groupId ;
-    INSERT INTO BATCHDEPT(batch_id, department_id, group_id) VALUES (batchId, departmentId, groupId) RETURNING
-    batch_id, department_id, group_id INTO batchDeptRow.batch_id, batchDeptRow.department_id, batchDeptRow.group_id;
-    return batchDeptRow;
-end;
-
-
-CREATE OR REPLACE PROCEDURE GENERATE_SAMPLE_DATE(
+CREATE OR REPLACE PROCEDURE GENERATE_SAMPLE_DATA(
     d Number
 )
 IS
@@ -39,6 +18,7 @@ IS
     sectionNames sectionNameType := sectionNameType('A', 'B');
     varsityId number;
     dummy number;
+    uniRole char(3);
 
 BEGIN
     varsityId := CREATE_UNIVERSITY('Bangladesh University Of Engineering And Technology').UNIVERSITY_ID;
@@ -57,9 +37,45 @@ BEGIN
             dummy := CREATE_BATCH_DEPT_FOR_SAMPLE(createdBatchIds(i), createdDeptIds(j),batchName(i), deptNameArr(j)).DEPARTMENT_ID;
             for k in 1 .. sectionNames.COUNT loop
                 dummy := CREATE_SECTION(createdBatchIds(i), createdDeptIds(j),sectionNames(k)).DEPARTMENT_ID;
+--                 for l in 1.. 60 loop
+--                     if l < 3 THEN
+--                         uniRole := 'adm';
+--                     ELSIF l < 6 THEN
+--                         uniRole := 'mod';
+--                     ELSE
+--                         uniRole := 'mem';
+--                     end if;
+--
+--                     dummy := CREATE_PERSON(null, null, null,null, null, null,'password' || j,varsityId,uniRole).PERSON_ID;
+--                     dummy := CREATE_STUDENT(dummy,createdBatchIds(i), createdDeptIds(j),sectionNames(k),
+--                         l,uniRole, uniRole, uniRole, uniRole,uniRole,
+--                         uniRole, uniRole, uniRole).PERSON_ID;
+--                 end loop;
             end loop;
+
+
+
         end loop;
     end loop;
 
 end;
 
+
+CREATE OR REPLACE FUNCTION CREATE_BATCH_DEPT_FOR_SAMPLE(
+    batchId number,
+    departmentId number,
+    batchName BATCH.name%TYPE,
+    deptName DEPARTMENT.name%TYPE
+)
+RETURN BATCHDEPT%rowtype
+AS
+
+    groupId number;
+    batchDeptRow BATCHDEPT%rowtype;
+BEGIN
+    INSERT INTO pGroup(Name) VALUES
+    (deptName || '-' || batchName) returning group_id INTO groupId ;
+    INSERT INTO BATCHDEPT(batch_id, department_id, group_id) VALUES (batchId, departmentId, groupId) RETURNING
+    batch_id, department_id, group_id INTO batchDeptRow.batch_id, batchDeptRow.department_id, batchDeptRow.group_id;
+    return batchDeptRow;
+end;

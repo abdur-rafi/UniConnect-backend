@@ -1,4 +1,5 @@
 
+
 CREATE OR REPLACE FUNCTION CREATE_GROUP(
     grName PGROUP.name%TYPE
 )
@@ -136,22 +137,20 @@ CREATE OR REPLACE FUNCTION CREATE_PERSON(
     email_ PERSON.email%type,
     phoneNo PERSON.phone_no%type,
     dateOfBirth PERSON.date_of_birth%type,
-    password_ PERSON.password%type,
-    uniId PERSON.university_id%type,
-    uniGroupRole PERSON.UNI_GROUP_ROLE%type
+    password_ PERSON.password%type
 )
 return Person%rowtype
 AS
     personRow Person%rowtype;
 BEGIN
-    INSERT INTO Person(first_name, last_name, address, email, phone_no, date_of_birth, password, university_id, uni_group_role)
+    INSERT INTO Person(first_name, last_name, address, email, phone_no, date_of_birth, password)
     VALUES
-    (fName, lName, address_,email_,phoneNo, dateOfBirth,password_,uniId, uniGroupRole)
+    (fName, lName, address_,email_,phoneNo, dateOfBirth,password_)
     returning
-    person_id, first_name, last_name, address, email, phone_no, date_of_birth, password, university_id, uni_group_role
+    person_id, first_name, last_name, address, email, phone_no, date_of_birth, password
     INTO
     personRow.person_id, personRow.first_name, personRow.last_name, personRow.address, personRow.email, personRow.phone_no, personRow.date_of_birth,
-        personRow.password, personRow.university_id, personRow.uni_group_role;
+        personRow.password;
     return personRow;
 end;
 
@@ -176,8 +175,11 @@ CREATE OR REPLACE FUNCTION CREATE_STUDENT(
     personId number,
     batchId number,
     departmentId number,
+    generatedPass STUDENT.generated_pass%TYPE,
+    password_ STUDENT.password%TYPE,
     sectionName STUDENT.section_name%TYPE,
     sectionRolNo STUDENT.section_roll_no%TYPE,
+    uniGroupRole STUDENT.uni_group_role%TYPE,
     deptAllRole STUDENT.dept_all_role%TYPE,
     deptAllStudentsRole STUDENT.dept_all_students_role%TYPE,
     deptSTypeGroupRole STUDENT.dept_sType_group_role%TYPE,
@@ -192,17 +194,17 @@ RETURN STUDENT%rowtype
 AS
     studentRow STUDENT%rowtype;
 BEGIN
-    INSERT INTO STUDENT(person_id, batch_id, department_id, section_name, section_roll_no, dept_all_role,
+    INSERT INTO STUDENT(person_id, batch_id, department_id, section_name, generated_pass, password, section_roll_no,uni_group_role, dept_all_role,
                         dept_all_students_role, dept_sType_group_role, batch_group_role, dept_batch_group_role, section_group_role,
                         uni_all_students_group_role, uni_sType_group_role)
     VALUES
-    (personId, batchId, departmentId, sectionName, sectionRolNo, deptAllRole, deptAllStudentsRole, deptSTypeGroupRole, batchGroupRole, deptBatchGroupRole,sectionGroupRole,
+    (personId, batchId, departmentId, sectionName, generatedPass, password_, sectionRolNo, uniGroupRole, deptAllRole, deptAllStudentsRole, deptSTypeGroupRole, batchGroupRole, deptBatchGroupRole,sectionGroupRole,
     uniAllStdGroupRole, unisTypeGroupRole) returning
-    student_id, person_id, batch_id, department_id, section_name, section_roll_no, dept_all_role,
+    student_id, person_id, batch_id, department_id, section_name, generated_pass, password, section_roll_no, dept_all_role,
     dept_all_students_role, dept_sType_group_role, batch_group_role, dept_batch_group_role, section_group_role,
     uni_all_students_group_role, uni_sType_group_role
     INTO
-    studentRow.student_id, studentRow.person_id, studentRow.batch_id, studentRow.department_id, studentRow.section_name, studentRow.section_roll_no, studentRow.dept_all_role,
+    studentRow.student_id, studentRow.person_id, studentRow.batch_id, studentRow.department_id, studentRow.section_name, studentRow.generated_pass, studentRow.password, studentRow.section_roll_no, studentRow.dept_all_role,
     studentRow.dept_all_students_role, studentRow.dept_sType_group_role, studentRow.batch_group_role, studentRow.dept_batch_group_role, studentRow.section_group_role,
     studentRow.uni_all_students_group_role, studentRow.uni_sType_group_role;
     return studentRow;
@@ -214,6 +216,7 @@ CREATE OR REPLACE FUNCTION CREATE_TEACHER(
     personId number,
     rank_ TEACHER.RANK%TYPE,
     departmentId number,
+    uniGroupRole STUDENT.uni_group_role%TYPE,
     deptGroupRole TEACHER.DEPT_GROUP_ROLE%TYPE,
     uniTeacherGroupRole TEACHER.uni_teacher_group_role%TYPE
 )
@@ -221,8 +224,8 @@ RETURN TEACHER%rowtype
 AS
     teacherRow TEACHER%rowtype;
 BEGIN
-    INSERT INTO TEACHER(person_id, rank, department_id, dept_group_role, uni_teacher_group_role)
-    VALUES (personId, rank_, departmentId, deptGroupRole, uniTeacherGroupRole)
+    INSERT INTO TEACHER(person_id, rank, department_id, uni_group_role, dept_group_role, uni_teacher_group_role)
+    VALUES (personId, rank_, departmentId, uniGroupRole, deptGroupRole, uniTeacherGroupRole)
     RETURNING teacher_id, person_id, rank, department_id, dept_group_role, uni_teacher_group_role
     INTO
     teacherRow.teacher_id, teacherRow.person_id, teacherRow.rank, teacherRow.department_id, teacherRow.dept_group_role, teacherRow.uni_teacher_group_role;
