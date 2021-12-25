@@ -5,6 +5,8 @@ import bodyParser from 'body-parser'
 
 import userRouter from './routes/login'
 
+require('dotenv').config()
+
 oracledb.createPool({
 	user          : "c##uniconnect",
 	password      : "uniconnect" ,
