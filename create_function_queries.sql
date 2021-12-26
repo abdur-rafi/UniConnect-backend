@@ -1,5 +1,4 @@
 
-
 CREATE OR REPLACE FUNCTION CREATE_GROUP(
     grName PGROUP.name%TYPE
 )
@@ -214,6 +213,7 @@ end;
 
 CREATE OR REPLACE FUNCTION CREATE_TEACHER(
     personId number,
+    generatedPass TEACHER.generated_pass%TYPE,
     rank_ TEACHER.RANK%TYPE,
     departmentId number,
     uniGroupRole STUDENT.uni_group_role%TYPE,
@@ -224,11 +224,11 @@ RETURN TEACHER%rowtype
 AS
     teacherRow TEACHER%rowtype;
 BEGIN
-    INSERT INTO TEACHER(person_id, rank, department_id, uni_group_role, dept_group_role, uni_teacher_group_role)
-    VALUES (personId, rank_, departmentId, uniGroupRole, deptGroupRole, uniTeacherGroupRole)
-    RETURNING teacher_id, person_id, rank, department_id, dept_group_role, uni_teacher_group_role
+    INSERT INTO TEACHER(person_id, generated_pass, rank, department_id, uni_group_role, dept_group_role, uni_teacher_group_role)
+    VALUES (personId ,generatedPass, rank_, departmentId, uniGroupRole, deptGroupRole, uniTeacherGroupRole)
+    RETURNING teacher_id, person_id, generated_pass, rank, department_id, dept_group_role, uni_teacher_group_role
     INTO
-    teacherRow.teacher_id, teacherRow.person_id, teacherRow.rank, teacherRow.department_id, teacherRow.dept_group_role, teacherRow.uni_teacher_group_role;
+    teacherRow.teacher_id, teacherRow.person_id, teacherRow.generated_pass, teacherRow.rank, teacherRow.department_id, teacherRow.dept_group_role, teacherRow.uni_teacher_group_role;
     return teacherRow;
 
 end;
