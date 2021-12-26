@@ -1,6 +1,5 @@
 import express from 'express'
 import oracledb from 'oracledb'
-import jwt from 'jsonwebtoken'
 import bcrypt from 'bcrypt'
 
 let router = express.Router()
@@ -51,7 +50,6 @@ router.route('/login')
     if(!b){
         return res.status(403).send("Invalid Password");
     }
-    let token = jwt.sign(result.rows[0].PERSON_ID.toString(), process.env.JWTSECRET!);
     
     
     let query = 
@@ -106,16 +104,20 @@ router.route('/login')
         STUDENT_UNIVERSITY_NAME:string | null,
         TEACHER_UNIVERSITY_ID: number | null,
         TEACHER_UNIVERSITY_NAME: number | null,
-        token: string
     
     }>(query,
          {pId : personId},{outFormat : oracledb.OUT_FORMAT_OBJECT});
 
+    res.cookie('user', {
+        person_id : personId
+    }, {
+        signed : true
+    });
+
     res.status(200).json({
-        ...result2.rows![0],
-        token : token
+        ...result2.rows![0]
     })
-         // console.log(token);
+        //  console.log(token);
 
 
     // if(fPerson)
