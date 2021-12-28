@@ -5,7 +5,7 @@ let router = express.Router()
 
 
 
-router.route('/depts/:id')
+router.route('/:id/depts/')
 .get(async (req, res)=>{
     let connection = await oracledb.getConnection();
     let query = 

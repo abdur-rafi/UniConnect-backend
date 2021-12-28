@@ -3,11 +3,12 @@ import oracledb from 'oracledb'
 import testRouter from './routes/test'
 import bodyParser from 'body-parser'
 
-import userRouter from './routes/login'
+import userRouter from './routes/user'
 import univarsityRouter from './routes/university'
 import morgan from 'morgan'
 import cors, { CorsOptions } from 'cors'
 import cookieParser from 'cookie-parser'
+import nodeCleanup from 'node-cleanup'
 
 require('dotenv').config()
 
@@ -24,6 +25,10 @@ oracledb.createPool({
 		optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 	}
 
+	nodeCleanup(()=>{
+		console.log("here");
+		 oracledb.getPool().close();
+	})
 	const app = express();
 	app.use(cors(corsOptions));
 	app.use(morgan('dev'));
@@ -49,5 +54,6 @@ oracledb.createPool({
 	app.listen(3000,()=>{
 		console.log("listening on port 3000");
 	});
+	
 	
 })

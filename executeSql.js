@@ -200,7 +200,19 @@ oracledb.createPool({
         })
         await connection.commit();
     }
-    await generateTeacher();
+
+    try{
+        let r = await connection.execute(`INSERT INTO PERSON(EMAIL, PASSWORD, TIMESTAMP) VALUES ('email1', 'password', '123')`, {}, {}, (err=>{
+            console.log("err from callback");
+            throw new Error("asdf");
+        }));
+    } catch(err){
+        console.log(err);
+        console.log(err.message);
+    }
+    
+    // await generateTeacher();
+
     // await sampleGenerate();
 
     // let result = await connection.execute(
