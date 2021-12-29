@@ -16,102 +16,155 @@ router.route('/login')
         return res.status(400).send("Invalid form");
     }
 
+    let connection;
     try{
 
-        let connection = await oracledb.getConnection();
+        connection = await oracledb.getConnection();
 
-        let query = 
-        `
-            SELECT 
-                P.person_id as ID,P.password as PASSWORD,
-                P.first_name || ' ' || P.last_name as NAME ,
-                S.STUDENT_ID,
-                T.TEACHER_ID,
-                U.UNIVERSITY_ID,
-                U.NAME as STUDENT_UNIVERSITY_NAME,
-                U2.UNIVERSITY_ID as TEACHER_UNIVERSITY_ID,
-                U2.NAME as TEACHER_UNIVERSITY_NAME
-
-            FROM 
-                PERSON P
-            FULL OUTER JOIN
-                STUDENT S 
-            ON 
-                S.PERSON_ID = P.PERSON_ID
-            FULL OUTER JOIN 
-                DEPARTMENT D
-            ON 
-                D.DEPARTMENT_ID = S.DEPARTMENT_ID
-            FULL OUTER JOIN
-                UNIVERSITY U
-            ON
-                U.UNIVERSITY_ID =  D.UNIVERSITY_ID
-
-            FULL OUTER  JOIN
-                TEACHER T
-            ON
-                T.PERSON_ID = P.PERSON_ID
-            FULL OUTER  JOIN 
-                DEPARTMENT D2
-            ON 
-                D2.DEPARTMENT_ID = T.DEPARTMENT_ID
-            FULL OUTER  JOIN
-                UNIVERSITY U2
-            ON
-                U2.UNIVERSITY_ID =  D2.UNIVERSITY_ID
+        let personQuery = `
+            SELECT person_id as ID, password FROM person 
             WHERE 
-                P.EMAIL = :email
-
+            email = :email
         `
-        let result = await connection.execute<{
+        let r = await connection.execute<{
             ID : number,
-            NAME : string,
-            PASSWORD : string,
-            STUDENT_ID : number | null,
-            TEACHER_ID : number | null,
-            UNIVERSITY_ID: number | null,
-            STUDENT_UNIVERSITY_NAME:string | null,
-            TEACHER_UNIVERSITY_ID: number | null,
-            TEACHER_UNIVERSITY_NAME: number | null,
-        
-        }>(
-            query,
-            {
-                email : email
-            },
-            {
-                outFormat : oracledb.OUT_FORMAT_OBJECT
-            });
-        
-        if(!result || !result.rows || result.rows?.length == 0){
+            PASSWORD : string
+        }>(personQuery,{email : email},{outFormat : oracledb.OUT_FORMAT_OBJECT});
+        if(!r.rows || r.rows.length == 0){
             return res.status(404).json({
                 message : "No User Found"
             })
         }
 
-
-        let actualPass = result.rows[0].PASSWORD;
+        let actualPass = r.rows[0].PASSWORD;
+        console.log(r);
         let b = await bcrypt.compare(pass, actualPass);
         if(!b){
             return res.status(403).send("Invalid Password");
         }
+        
+        let personId = r.rows[0].ID;
+
+        let studentQuery = `
+            SELECT
+                S.STUDENT_ID as id,
+                U.UNIVERSITY_ID,
+                U.NAME as university_name
+            FROM 
+                STUDENT S
+            JOIN 
+                DEPARTMENT D
+            ON 
+                D.department_id = S.department_id
+            JOIN
+                UNIVERSITY U
+            ON 
+                U.university_id = D.university_id
+            WHERE 
+                S.person_id = :pId
+        `
+        let teacherQuery = `
+        SELECT
+            T.teacher_id as id,
+            U.UNIVERSITY_ID,
+            U.NAME as university_name
+        FROM 
+            TEACHER T
+        JOIN 
+            DEPARTMENT D
+        ON 
+            D.department_id = T.department_id
+        JOIN
+            UNIVERSITY U
+        ON 
+            U.university_id = D.university_id
+        WHERE 
+            T.person_id = :pId
+        
+        `
+        let managementQuery = `
+            SELECT 
+                management_id as ID,
+                U.university_id,
+                U.Name as university_name
+            FROM
+                MANAGEMENT M
+            JOIN 
+                UNIVERSITY U
+            ON 
+                U.university_id = M.university_id
+            WHERE
+                person_id = :pId
+
+        `
+        let resultStudents = await connection.execute<{
+            ID : number,
+            UNIVERSITY_ID : number,
+            UNIVERSITY_NAME : string
+        }>(
+            studentQuery,
+            {
+                pId : personId
+            },
+            {
+                outFormat : oracledb.OUT_FORMAT_OBJECT
+            });
+    
+        let resultTeachers = await connection.execute<{
+            ID : number,
+            UNIVERSITY_ID : number,
+            UNIVERSITY_NAME : string
+        }>(
+            teacherQuery,
+            {
+                pId : personId
+            },
+            {
+                outFormat : oracledb.OUT_FORMAT_OBJECT
+            }
+        )
+        let resultManagements = await connection.execute<{
+            ID : number,
+            UNIVERSITY_ID : number,
+            UNIVERSITY_NAME : string
+        }>(
+            managementQuery,
+            {
+                pId : personId
+            },
+            {
+                outFormat : oracledb.OUT_FORMAT_OBJECT
+            }
+        )
+
+        
 
         res.cookie('user', {
-            person_id : result.rows[0].ID
+            personId : personId
         }, {
             signed : true
         });
 
+        // console.log(resultTeachers.rows)
         res.status(200).json({
-            ...result.rows
+            personInfo : {
+                personId : personId
+            },
+            studentRoles : resultStudents.rows,
+            teacherRoles : resultTeachers.rows,
+            managementRoles : resultManagements.rows
         })
-        await connection.close()
     }
     catch(error){
         console.log(error);
         res.status(500).json({
             message : "Internal Server Error"
         })
+    }
+    finally{
+        if(connection){
+            connection.close();
+        }
     }
     
 })
@@ -223,7 +276,14 @@ router.route('/signup')
                 }
                 else{
                     // console.log(result.outBinds.ret);
+                    res.cookie('user', {
+                        personId : result.outBinds.ret.PERSON_ID
+                    }, {
+                        signed : true
+                    });
+            
                     res.status(200).json(result.outBinds.ret);
+
                 }
                 
             })
@@ -242,5 +302,192 @@ router.route('/signup')
         }
     }
 })
+
+router.route('/login/student/:id')
+.post(async (req, res, next)=>{
+    
+    let cookie = req.signedCookies;
+    // console.log(cookie);
+    if(!cookie || !cookie.user){
+        res.locals.status = 403;
+        res.locals.message = 'Not authenticated';
+        return next();
+    }
+    let personId = cookie.user.personId;
+    if(!personId){
+        res.locals.status = 403;
+        res.locals.message = 'Invalid cookie';
+        return next();
+    }
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+            SELECT 
+                STUDENT_ID AS ID 
+            FROM 
+                STUDENT
+            WHERE
+                PERSON_ID = :pId AND STUDENT_ID = :sId
+            `   
+        let result = await connection.execute<{
+            ID : number
+        }>(
+            query,
+            {pId : personId, sId : req.params.id},
+            {outFormat : oracledb.OUT_FORMAT_OBJECT}
+        )
+        if( !result.rows || result.rows.length == 0){
+            res.locals.status = 404;
+            res.locals.message = 'user not found';
+            return next();
+        }
+        res.cookie('user', {
+            personId : personId,
+            studentId : result.rows[0].ID
+        }, {
+            signed : true
+        })
+        return res.status(200).json({
+            personId : personId,
+            studentId : result.rows[0].ID
+        })
+    }
+    catch(error){
+        res.locals.status = 500;
+        res.locals.status = 'internal server error';
+        return next();
+    }
+    finally{
+        if(connection){
+            connection.close();
+        }
+    }
+})
+
+router.route('/login/teacher/:id')
+.post(async (req, res, next)=>{
+    
+    let cookie = req.signedCookies;
+    if(!cookie || !cookie.user){
+        res.locals.status = 403;
+        res.locals.message = 'Not authenticated';
+        return next();
+    }
+    // console.log(cookie);
+    let personId = cookie.user.personId;
+    if(!personId){
+        res.locals.status = 403;
+        res.locals.message = 'Invalid cookie';
+        return next();
+    }
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+            SELECT 
+                TEACHER_ID AS ID 
+            FROM 
+                TEACHER
+            WHERE
+                PERSON_ID = :pId  AND TEACHER_ID = :tId
+            `   
+        let result = await connection.execute<{
+            ID : number
+        }>(
+            query,
+            {pId : personId, tId : req.params.id},
+            {outFormat : oracledb.OUT_FORMAT_OBJECT}
+        )
+        if( !result.rows || result.rows.length == 0){
+            res.locals.status = 404;
+            res.locals.message = 'user not found';
+            return next();
+        }
+        res.cookie('user', {
+            personId : personId,
+            teacherId : result.rows[0].ID
+        }, {
+            signed : true
+        })
+        return res.status(200).json({
+            personId : personId,
+            teacherId : result.rows[0].ID
+        })
+    }
+    catch(error){
+        res.locals.status = 500;
+        res.locals.status = 'internal server error';
+        return next();
+    }
+    finally{
+        if(connection){
+            connection.close();
+        }
+    }
+})
+
+router.route('/login/management/:id')
+.post(async (req, res, next)=>{
+    
+    let cookie = req.signedCookies;
+    if(!cookie || !cookie.user){
+        res.locals.status = 403;
+        res.locals.message = 'Not authenticated';
+        return next();
+    }
+    // console.log(cookie);
+    let personId = cookie.user.personId;
+    if(!personId){
+        res.locals.status = 403;
+        res.locals.message = 'Invalid cookie';
+        return next();
+    }
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+            SELECT 
+                MANAGEMENT_ID AS ID 
+            FROM 
+                MANAGEMENT
+            WHERE
+                PERSON_ID = :pId  AND MANAGEMENT_ID = :mId
+            `   
+        let result = await connection.execute<{
+            ID : number
+        }>(
+            query,
+            {pId : personId, mId : req.params.id},
+            {outFormat : oracledb.OUT_FORMAT_OBJECT}
+        )
+        if( !result.rows || result.rows.length == 0){
+            res.locals.status = 404;
+            res.locals.message = 'user not found';
+            return next();
+        }
+        res.cookie('user', {
+            personId : personId,
+            managementId : result.rows[0].ID
+        }, {
+            signed : true
+        })
+        return res.status(200).json({
+            personId : personId,
+            managementId : result.rows[0].ID
+        })
+    }
+    catch(error){
+        res.locals.status = 500;
+        res.locals.status = 'internal server error';
+        return next();
+    }
+    finally{
+        if(connection){
+            connection.close();
+        }
+    }
+})
+
 
 export default router;  

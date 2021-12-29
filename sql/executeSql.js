@@ -202,10 +202,15 @@ oracledb.createPool({
     }
 
     try{
-        let r = await connection.execute(`INSERT INTO PERSON(EMAIL, PASSWORD, TIMESTAMP) VALUES ('email1', 'password', '123')`, {}, {}, (err=>{
-            console.log("err from callback");
-            throw new Error("asdf");
-        }));
+        // let r = await connection.execute(`INSERT INTO PERSON(EMAIL, PASSWORD, TIMESTAMP) VALUES ('email1', 'password', '123')`, {}, {}, (err=>{
+        //     console.log("err from callback");
+        //     throw new Error("asdf");
+        // }));
+        let r2 = await connection.execute(
+            `SELECT * FROM STUDENT WHERE PERSON_ID = 601
+            `
+        )
+        console.log(r2);
     } catch(err){
         console.log(err);
         console.log(err.message);

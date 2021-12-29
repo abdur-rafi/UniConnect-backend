@@ -26,7 +26,7 @@ oracledb.createPool({
 	}
 
 	nodeCleanup(()=>{
-		console.log("here");
+		// console.log("here");
 		 oracledb.getPool().close();
 	})
 	const app = express();
@@ -49,7 +49,12 @@ oracledb.createPool({
 	})
 	app.use('/test', testRouter);
 	app.use('/user', userRouter);
-	app.use('/uni', univarsityRouter);
+	app.use('/university', univarsityRouter);
+	app.use((req, res)=>{
+		res.status(res.locals.status).json({
+			message : res.locals.message
+		})
+	})
 
 	app.listen(3000,()=>{
 		console.log("listening on port 3000");
