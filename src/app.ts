@@ -12,6 +12,7 @@ import nodeCleanup from 'node-cleanup'
 import userRouter from './routes/user'
 import univarsityRouter from './routes/university'
 import departmentsRouter from './routes/departments'
+import batchRouter from './routes/batches';
 
 require('dotenv').config()
 
@@ -48,6 +49,8 @@ oracledb.createPool({
 	app.use('/user', userRouter);
 	app.use('/university', univarsityRouter);
 	app.use('/departments', departmentsRouter);
+	app.use('/batches', batchRouter);
+	
 	app.use((req, res)=>{
 		res.status(res.locals.status).json({
 			message : res.locals.message

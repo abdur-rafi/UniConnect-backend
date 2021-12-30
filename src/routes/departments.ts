@@ -20,9 +20,12 @@ router.route('/')
     
     let query = 
     `
+        DECLARE
+            d number;
         BEGIN
+            SELECT UNIVERSITY_ID INTO d FROM MANAGEMENT WHERE management_id = :mId;
             :ret := CREATE_DEPARTMENT(
-                (SELECT university_id FROM MANAGEMENT WHERE management_id = :mId),
+                d,
                 :deptName,
                 :deptCode
             );
@@ -49,6 +52,7 @@ router.route('/')
             },
             (err, result)=>{
                 if(err){
+                    console.log(err);
                     if(err.errorNum == 1){
                         if(err.message.includes('UNIQUEDEPTCODE')){
                             return setLocals(403,'Dept Code already used',next, res);

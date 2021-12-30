@@ -1,6 +1,7 @@
 import { NextFunction } from "express";
 import OracleDB from "oracledb";
-import { Response } from "express";
+import { Response, Request } from "express";
+type loggedAs = 'Teacher' | 'Management' | 'Student';
 export function closeConnection(connection : undefined | OracleDB.Connection){
     try{
         if(connection){
@@ -45,4 +46,66 @@ export function noUserFound(next: NextFunction, res : Response){
 
 export function invalidCookie(next: NextFunction, res : Response){
     setLocals(401,'Invalid cookie', next, res);
+}
+
+
+export function extractTableAndId(next : NextFunction, req : Request, res : Response) : null | {
+    tableName : loggedAs,
+    id : number
+}{
+    let cookie = req.signedCookies;
+    if(!cookie || !cookie.user){
+        notAuthenticated(next, res);
+        return null;
+    }
+    let user = cookie.user;
+    if(!(user.managementId || user.studentId || user.teacherId)){
+        notAuthenticated(next, res);
+        return null;
+    }
+    let tableName : loggedAs;
+    let id : number;
+    if(user.managementId){
+        tableName = 'Management';
+        id = user.managementId;
+    }
+    else if(user.studentId){
+        tableName = 'Student';
+        id = user.studentId;    
+    }
+    else{
+        tableName = 'Teacher';
+        id = user.teacherId;
+    }
+    return {
+        tableName : tableName,
+        id : id
+    }
+    
+}
+
+export function getUniQuery(tableName : loggedAs) : string{
+    let universityQuery;
+    if(tableName == 'Teacher' || tableName == 'Student'){
+        universityQuery = `
+            SELECT UNIVERSITY_ID
+            FROM
+                ${tableName}
+            JOIN
+                DEPARTMENT
+            USING (DEPARTMENT_ID)
+            WHERE
+                ${tableName}_ID = :id
+        `
+    }
+    else{
+        universityQuery = `
+            SELECT UNIVERSITY_ID
+            FROM 
+                MANAGEMENT 
+            WHERE
+                MANAGEMENT_ID = :id
+        `
+    }
+    return universityQuery;
 }
