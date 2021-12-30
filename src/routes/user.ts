@@ -1,19 +1,20 @@
 import express from 'express'
 import oracledb from 'oracledb'
 import bcrypt from 'bcrypt'
+import { closeConnection, invalidCookie, invalidForm, notAuthenticated, noUserFound, serverError, setLocals } from '../reusableParts'
 
 let router = express.Router()
 
 
 router.route('/login')
-.post(async (req, res)=>{
+.post(async (req, res, next)=>{
 
     let form = req.body;
     let email : string = form.email;
     let pass : string = form.password;
 
     if(!(email && pass)){
-        return res.status(400).send("Invalid form");
+        return invalidForm(next, res);
     }
 
     let connection;
@@ -31,16 +32,14 @@ router.route('/login')
             PASSWORD : string
         }>(personQuery,{email : email},{outFormat : oracledb.OUT_FORMAT_OBJECT});
         if(!r.rows || r.rows.length == 0){
-            return res.status(404).json({
-                message : "No User Found"
-            })
+            return noUserFound(next, res);
         }
 
         let actualPass = r.rows[0].PASSWORD;
         console.log(r);
         let b = await bcrypt.compare(pass, actualPass);
         if(!b){
-            return res.status(403).send("Invalid Password");
+            return setLocals(403, 'Invalid Password',next, res);
         }
         
         let personId = r.rows[0].ID;
@@ -157,21 +156,16 @@ router.route('/login')
     }
     catch(error){
         console.log(error);
-        res.status(500).json({
-            message : "Internal Server Error"
-        })
+        return serverError(next, res);
     }
     finally{
-        if(connection){
-            connection.close();
-        }
+        closeConnection(connection);
     }
     
 })
 
-
 router.route('/signup')
-.post(async (req, res)=>{
+.post(async (req, res, next)=>{
     let fName : string = req.body.first_name;
     let lName : string = req.body.last_name;
     let address : string = req.body.address;
@@ -182,9 +176,7 @@ router.route('/signup')
     console.log(req.body);
 
     if(!(fName && lName && address && email && phoneNo && dateOfBirth && password)){
-        return res.status(400).json({
-            message : "invalid form"
-        })
+        return invalidForm(next, res);
     }
     fName = fName.trim();
     lName = lName.trim();
@@ -195,9 +187,7 @@ router.route('/signup')
     // password = password.trim();
 
     if(fName.length < 2 || lName.length < 2 || email.length < 4 || password.length < 5){
-        return res.status(400).json({
-            message : "invalid form"
-        })
+        return invalidForm(next, res);
     }
 
     
@@ -254,25 +244,18 @@ router.route('/signup')
                 if(err){
                     console.log(err);
                     if(err.errorNum == 1){
-                        return res.status(400).json({
-                            message : "Email already in use"
-                        })
+                        return setLocals(400,'Email or phone number already in use', next, res);
                     }
                     else if(err.errorNum &&( err.errorNum >= 1800 || err.errorNum < 1900)){
-                        return res.status(400).json({
-                            message : "invalid date"
-                        })
+                        return setLocals(400, 'invalid date', next, res);
                     }
                     else{
-                        return res.status(500).json({
-                            message : "internal server error"
-                        })
+                        return serverError(next, res);
                     }
                 }
                 if(!result.outBinds){
-                    return res.status(500).json({
-                        message : "internal server error"
-                    })
+                    return serverError(next, res);
+
                 }
                 else{
                     // console.log(result.outBinds.ret);
@@ -292,14 +275,12 @@ router.route('/signup')
     }
     catch(error){
         console.log(error);
-        return res.status(500).json({
-            message : "internal server error"
-        })
+        return serverError(next, res);
+
     }
     finally{
-        if(connection){
-            connection.close();
-        }
+        closeConnection(connection);
+
     }
 })
 
@@ -309,15 +290,11 @@ router.route('/login/student/:id')
     let cookie = req.signedCookies;
     // console.log(cookie);
     if(!cookie || !cookie.user){
-        res.locals.status = 403;
-        res.locals.message = 'Not authenticated';
-        return next();
+        return notAuthenticated(next, res);
     }
     let personId = cookie.user.personId;
     if(!personId){
-        res.locals.status = 403;
-        res.locals.message = 'Invalid cookie';
-        return next();
+        return invalidCookie(next, res);
     }
     let connection;
     try{
@@ -338,9 +315,7 @@ router.route('/login/student/:id')
             {outFormat : oracledb.OUT_FORMAT_OBJECT}
         )
         if( !result.rows || result.rows.length == 0){
-            res.locals.status = 404;
-            res.locals.message = 'user not found';
-            return next();
+            return noUserFound(next, res);
         }
         res.cookie('user', {
             personId : personId,
@@ -354,14 +329,12 @@ router.route('/login/student/:id')
         })
     }
     catch(error){
-        res.locals.status = 500;
-        res.locals.status = 'internal server error';
-        return next();
+        return serverError(next, res);
+
     }
     finally{
-        if(connection){
-            connection.close();
-        }
+        closeConnection(connection);
+
     }
 })
 
@@ -370,16 +343,12 @@ router.route('/login/teacher/:id')
     
     let cookie = req.signedCookies;
     if(!cookie || !cookie.user){
-        res.locals.status = 403;
-        res.locals.message = 'Not authenticated';
-        return next();
+        return notAuthenticated(next, res); 
     }
     // console.log(cookie);
     let personId = cookie.user.personId;
     if(!personId){
-        res.locals.status = 403;
-        res.locals.message = 'Invalid cookie';
-        return next();
+        return invalidCookie(next, res);
     }
     let connection;
     try{
@@ -400,9 +369,7 @@ router.route('/login/teacher/:id')
             {outFormat : oracledb.OUT_FORMAT_OBJECT}
         )
         if( !result.rows || result.rows.length == 0){
-            res.locals.status = 404;
-            res.locals.message = 'user not found';
-            return next();
+            return noUserFound(next, res);
         }
         res.cookie('user', {
             personId : personId,
@@ -416,14 +383,11 @@ router.route('/login/teacher/:id')
         })
     }
     catch(error){
-        res.locals.status = 500;
-        res.locals.status = 'internal server error';
-        return next();
+        return serverError(next, res);
     }
     finally{
-        if(connection){
-            connection.close();
-        }
+        closeConnection(connection);
+
     }
 })
 
@@ -432,16 +396,12 @@ router.route('/login/management/:id')
     
     let cookie = req.signedCookies;
     if(!cookie || !cookie.user){
-        res.locals.status = 403;
-        res.locals.message = 'Not authenticated';
-        return next();
+        return notAuthenticated(next, res);
     }
     // console.log(cookie);
     let personId = cookie.user.personId;
     if(!personId){
-        res.locals.status = 403;
-        res.locals.message = 'Invalid cookie';
-        return next();
+        return invalidCookie(next, res);
     }
     let connection;
     try{
@@ -462,9 +422,7 @@ router.route('/login/management/:id')
             {outFormat : oracledb.OUT_FORMAT_OBJECT}
         )
         if( !result.rows || result.rows.length == 0){
-            res.locals.status = 404;
-            res.locals.message = 'user not found';
-            return next();
+            return noUserFound(next, res);
         }
         res.cookie('user', {
             personId : personId,
@@ -478,14 +436,10 @@ router.route('/login/management/:id')
         })
     }
     catch(error){
-        res.locals.status = 500;
-        res.locals.status = 'internal server error';
-        return next();
+        return serverError(next, res);
     }
     finally{
-        if(connection){
-            connection.close();
-        }
+        closeConnection(connection);
     }
 })
 

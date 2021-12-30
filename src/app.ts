@@ -3,12 +3,15 @@ import oracledb from 'oracledb'
 import testRouter from './routes/test'
 import bodyParser from 'body-parser'
 
-import userRouter from './routes/user'
-import univarsityRouter from './routes/university'
 import morgan from 'morgan'
 import cors, { CorsOptions } from 'cors'
 import cookieParser from 'cookie-parser'
 import nodeCleanup from 'node-cleanup'
+
+
+import userRouter from './routes/user'
+import univarsityRouter from './routes/university'
+import departmentsRouter from './routes/departments'
 
 require('dotenv').config()
 
@@ -38,18 +41,13 @@ oracledb.createPool({
 		extended : true
 	}));
 
-	// app.use((req, res, next)=>{
-	// 	console.log(req);
-	// 	next();
-	// })
-
-
 	app.get('/', (req, res)=> {
 		res.send('Hello World');
 	})
 	app.use('/test', testRouter);
 	app.use('/user', userRouter);
 	app.use('/university', univarsityRouter);
+	app.use('/departments', departmentsRouter);
 	app.use((req, res)=>{
 		res.status(res.locals.status).json({
 			message : res.locals.message

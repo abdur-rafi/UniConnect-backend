@@ -206,8 +206,17 @@ oracledb.createPool({
         //     console.log("err from callback");
         //     throw new Error("asdf");
         // }));
-        let r2 = await connection.execute(
-            `SELECT * FROM STUDENT WHERE PERSON_ID = 601
+        // let r2 = await connection.execute(
+        //     `SELECT * FROM STUDENT WHERE PERSON_ID = 601
+        //     `
+        // )
+        let r3 = await connection.execute(
+            `
+            DECLARE
+                d number;
+            BEGIN
+                d := CREATE_BATCH('adsf',7,'a','pg').BATCH_ID;
+            end;
             `
         )
         console.log(r2);
