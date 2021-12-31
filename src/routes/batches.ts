@@ -101,7 +101,7 @@ router.route('/')
                 B.BATCH_ID, 
                 B.NAME as BATCH_NAME, 
                 D.NAME as DEPT_NAME, 
-                COUNT(S.STUDENT_ID) as STUDENT_COUNT,
+                COUNT(S.ROLE_ID) as STUDENT_COUNT,
                 (
                     SELECT 
                         COUNT(SECTION_NAME) 

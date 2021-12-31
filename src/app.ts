@@ -17,7 +17,7 @@ import batchRouter from './routes/batches';
 require('dotenv').config()
 
 oracledb.createPool({
-	user          : "c##uniconnect",
+	user          : "c##uniconnect_v2",
 	password      : "uniconnect" ,
 	connectString : "localhost/orcl"
 

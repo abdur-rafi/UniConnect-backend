@@ -169,67 +169,96 @@ BEGIN
     return managementRow;
 end;
 
+CREATE OR REPLACE FUNCTION CREATE_ACADEMIC_ROLE(
+    personId number,
+    generatedPass ACADEMIC_ROLE.GENERATED_PASS%TYPE,
+    password_ ACADEMIC_ROLE.PASSWORD%TYPE,
+    uniAllGroupRole ACADEMIC_ROLE. UNI_ALL_GROUP_ROLE%TYPE,
+    uniSelfGroupRole ACADEMIC_ROLE.UNI_SELF_GROUP_ROLE%TYPE,
+    deptAllGroupRole ACADEMIC_ROLE.DEPT_ALL_GROUP_ROLE%TYPE,
+    deptSelfGroupRole ACADEMIC_ROLE.DEPT_SELF_GROUP_ROLE%TYPE
+)
+RETURN ACADEMIC_ROLE%rowtype
+AS
+    academicRole ACADEMIC_ROLE%rowtype;
+BEGIN
+    INSERT INTO
+        ACADEMIC_ROLE(person_id, generated_pass, PASSWORD, uni_all_group_role, uni_self_group_role, dept_all_group_role, dept_self_group_role)
+    VALUES (personId, generatedPass, password_, uniAllGroupRole, uniSelfGroupRole, deptAllGroupRole, deptSelfGroupRole)
+    RETURNING ROLE_ID, person_id, generated_pass, TIMESTAMP,uni_all_group_role, uni_self_group_role, dept_all_group_role, dept_self_group_role
+    INTO
+    academicRole.ROLE_ID, academicRole.person_id,
+        academicRole.generated_pass, academicRole.TIMESTAMP,academicRole.uni_all_group_role,
+        academicRole.uni_self_group_role, academicRole.dept_all_group_role, academicRole.dept_self_group_role;
+    return academicRole;
+end;
+
 
 CREATE OR REPLACE FUNCTION CREATE_STUDENT(
     personId number,
     batchId number,
     departmentId number,
-    generatedPass STUDENT.generated_pass%TYPE,
-    password_ STUDENT.password%TYPE,
+    generatedPass ACADEMIC_ROLE.generated_pass%TYPE,
+    password_ ACADEMIC_ROLE.GENERATED_PASS%TYPE,
     sectionName STUDENT.section_name%TYPE,
     sectionRolNo STUDENT.section_roll_no%TYPE,
-    uniGroupRole STUDENT.uni_group_role%TYPE,
-    deptAllRole STUDENT.dept_all_role%TYPE,
+    uniGroupRole ACADEMIC_ROLE.uni_all_group_role%TYPE,
+    deptAllRole ACADEMIC_ROLE.DEPT_ALL_GROUP_ROLE%TYPE,
     deptAllStudentsRole STUDENT.dept_all_students_role%TYPE,
-    deptSTypeGroupRole STUDENT.dept_sType_group_role%TYPE,
+    deptSTypeGroupRole ACADEMIC_ROLE.DEPT_SELF_GROUP_ROLE%TYPE,
     batchGroupRole STUDENT.batch_group_role%TYPE,
     deptBatchGroupRole STUDENT.dept_batch_group_role%TYPE,
     sectionGroupRole STUDENT.section_group_role%TYPE,
     uniAllStdGroupRole STUDENT.uni_all_students_group_role%TYPE,
-    unisTypeGroupRole STUDENT.uni_sType_group_role%TYPE
+    unisTypeGroupRole ACADEMIC_ROLE.UNI_SELF_GROUP_ROLE%TYPE
 
 )
 RETURN STUDENT%rowtype
 AS
     studentRow STUDENT%rowtype;
+    academicRoleRow ACADEMIC_ROLE%rowtype;
 BEGIN
-    INSERT INTO STUDENT(person_id, batch_id, department_id, section_name, generated_pass, password, section_roll_no,uni_group_role, dept_all_role,
-                        dept_all_students_role, dept_sType_group_role, batch_group_role, dept_batch_group_role, section_group_role,
-                        uni_all_students_group_role, uni_sType_group_role)
+    academicRoleRow := CREATE_ACADEMIC_ROLE(personId,generatedPass,password_, uniGroupRole,unisTypeGroupRole,deptAllRole,deptSTypeGroupRole);
+    INSERT INTO STUDENT(ROLE_ID, BATCH_ID, DEPARTMENT_ID, SECTION_NAME, SECTION_ROLL_NO, DEPT_ALL_STUDENTS_ROLE, BATCH_GROUP_ROLE, DEPT_BATCH_GROUP_ROLE,
+                        SECTION_GROUP_ROLE, UNI_ALL_STUDENTS_GROUP_ROLE)
     VALUES
-    (personId, batchId, departmentId, sectionName, generatedPass, password_, sectionRolNo, uniGroupRole, deptAllRole, deptAllStudentsRole, deptSTypeGroupRole, batchGroupRole, deptBatchGroupRole,sectionGroupRole,
-    uniAllStdGroupRole, unisTypeGroupRole) returning
-    student_id, person_id, batch_id, department_id, section_name, generated_pass, password, section_roll_no, dept_all_role,
-    dept_all_students_role, dept_sType_group_role, batch_group_role, dept_batch_group_role, section_group_role,
-    uni_all_students_group_role, uni_sType_group_role
+    (academicRoleRow.ROLE_ID, batchId, departmentId, sectionName, sectionRolNo, deptAllStudentsRole, batchGroupRole, deptBatchGroupRole,sectionGroupRole,
+    uniAllStdGroupRole) returning
+    role_id, batch_id, department_id, section_name, section_roll_no,
+    dept_all_students_role,batch_group_role, dept_batch_group_role, section_group_role,
+    uni_all_students_group_role
     INTO
-    studentRow.student_id, studentRow.person_id, studentRow.batch_id, studentRow.department_id, studentRow.section_name, studentRow.generated_pass, studentRow.password, studentRow.section_roll_no, studentRow.dept_all_role,
-    studentRow.dept_all_students_role, studentRow.dept_sType_group_role, studentRow.batch_group_role, studentRow.dept_batch_group_role, studentRow.section_group_role,
-    studentRow.uni_all_students_group_role, studentRow.uni_sType_group_role;
+    studentRow.ROLE_ID, studentRow.batch_id, studentRow.department_id, studentRow.section_name ,studentRow.section_roll_no,
+    studentRow.dept_all_students_role, studentRow.batch_group_role, studentRow.dept_batch_group_role, studentRow.section_group_role,
+    studentRow.uni_all_students_group_role;
     return studentRow;
-
 end;
 
 
 CREATE OR REPLACE FUNCTION CREATE_TEACHER(
     personId number,
-    generatedPass TEACHER.generated_pass%TYPE,
+    generatedPass ACADEMIC_ROLE.GENERATED_PASS%TYPE,
+    password_ ACADEMIC_ROLE.PASSWORD%TYPE,
     rank_ TEACHER.RANK%TYPE,
     departmentId number,
-    uniGroupRole STUDENT.uni_group_role%TYPE,
-    deptGroupRole TEACHER.DEPT_GROUP_ROLE%TYPE,
-    uniTeacherGroupRole TEACHER.uni_teacher_group_role%TYPE
+    uniGroupRole ACADEMIC_ROLE.UNI_ALL_GROUP_ROLE%TYPE,
+    uniTeacherGroupRole ACADEMIC_ROLE.UNI_SELF_GROUP_ROLE%TYPE,
+    deptAllGroupRole ACADEMIC_ROLE.DEPT_ALL_GROUP_ROLE%TYPE,
+    deptTeacherGroupRole ACADEMIC_ROLE.DEPT_SELF_GROUP_ROLE%TYPE
 )
 RETURN TEACHER%rowtype
 AS
     teacherRow TEACHER%rowtype;
+    academicRoleRow ACADEMIC_ROLE%rowtype;
 BEGIN
-    INSERT INTO TEACHER(person_id, generated_pass, rank, department_id, uni_group_role, dept_group_role, uni_teacher_group_role)
-    VALUES (personId ,generatedPass, rank_, departmentId, uniGroupRole, deptGroupRole, uniTeacherGroupRole)
-    RETURNING teacher_id, person_id, generated_pass, rank, department_id, dept_group_role, uni_teacher_group_role
-    INTO
-    teacherRow.teacher_id, teacherRow.person_id, teacherRow.generated_pass, teacherRow.rank, teacherRow.department_id, teacherRow.dept_group_role, teacherRow.uni_teacher_group_role;
-    return teacherRow;
+    academicRoleRow := CREATE_ACADEMIC_ROLE(personId, generatedPass,password_,uniGroupRole,
+        uniTeacherGroupRole, deptAllGroupRole,deptTeacherGroupRole);
 
+    INSERT INTO TEACHER(ROLE_ID, rank, department_id)
+    VALUES (academicRoleRow.ROLE_ID, rank_, departmentId)
+    RETURNING ROLE_ID, rank, department_id
+    INTO
+    teacherRow.ROLE_ID, teacherRow.rank, teacherRow.department_id;
+    return teacherRow;
 end;
 

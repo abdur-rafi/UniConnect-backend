@@ -46,7 +46,7 @@ router.route('/login')
 
         let studentQuery = `
             SELECT
-                S.STUDENT_ID as id,
+                S.ROLE_ID as id,
                 U.UNIVERSITY_ID,
                 U.NAME as university_name
             FROM 
@@ -59,12 +59,16 @@ router.route('/login')
                 UNIVERSITY U
             ON 
                 U.university_id = D.university_id
+            JOIN 
+                ACADEMIC_ROLE AR
+            ON
+                S.ROLE_ID = AR.ROLE_ID
             WHERE 
-                S.person_id = :pId
+                AR.PERSON_ID = :pId
         `
         let teacherQuery = `
         SELECT
-            T.teacher_id as id,
+            T.ROLE_ID as id,
             U.UNIVERSITY_ID,
             U.NAME as university_name
         FROM 
@@ -77,8 +81,12 @@ router.route('/login')
             UNIVERSITY U
         ON 
             U.university_id = D.university_id
+        JOIN
+            ACADEMIC_ROLE AR
+        ON
+            AR.ROLE_ID = T.ROLE_ID
         WHERE 
-            T.person_id = :pId
+            AR.person_id = :pId
         
         `
         let managementQuery = `
@@ -301,11 +309,15 @@ router.route('/login/student/:id')
         connection = await oracledb.getConnection();
         let query = `
             SELECT 
-                STUDENT_ID AS ID 
+                S.ROLE_ID AS ID 
             FROM 
-                STUDENT
+                STUDENT S
+            JOIN
+                ACADEMIC_ROLE AR
+            ON
+                AR.ROLE_ID = S.ROLE_ID
             WHERE
-                PERSON_ID = :pId AND STUDENT_ID = :sId
+                AR.PERSON_ID = :pId AND S.ROLE_ID = :sId
             `   
         let result = await connection.execute<{
             ID : number
@@ -329,6 +341,7 @@ router.route('/login/student/:id')
         })
     }
     catch(error){
+        console.log(error);
         return serverError(next, res);
 
     }
@@ -355,11 +368,15 @@ router.route('/login/teacher/:id')
         connection = await oracledb.getConnection();
         let query = `
             SELECT 
-                TEACHER_ID AS ID 
+                T.ROLE_ID AS ID 
             FROM 
-                TEACHER
+                TEACHER T
+            JOIN
+                ACADEMIC_ROLE AR
+            ON
+                AR.ROLE_ID = T.ROLE_ID
             WHERE
-                PERSON_ID = :pId  AND TEACHER_ID = :tId
+                AR.PERSON_ID = :pId  AND T.ROLE_ID = :tId
             `   
         let result = await connection.execute<{
             ID : number

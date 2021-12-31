@@ -1,6 +1,6 @@
 import express from 'express'
 import oracledb from 'oracledb'
-import { closeConnection, invalidForm, notAuthenticated, serverError, setLocals } from '../reusableParts'
+import { closeConnection, extractTableAndId, getUniQuery, invalidForm, notAuthenticated, serverError, setLocals } from '../reusableParts'
 
 let router = express.Router()
 
@@ -88,7 +88,68 @@ router.route('/')
       
 
 })
+.get(async (req, res, next)=>{
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return null;
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        let uniQuery = getUniQuery(ret?.tableName);
 
+        let query = `
+            SELECT 
+                D.NAME as DEPARTMENT_NAME,
+                B.NAME as BATCH_NAME,
+                B.YEAR,
+                B.BATCH_ID,
+                B.BATCHOFSTYPE,
+                (
+                    SELECT 
+                        COUNT(SECTION_NAME) 
+                    FROM 
+                        SECTION SC 
+                    WHERE 
+                        SC.BATCH_ID = B.BATCH_ID 
+                        AND 
+                        SC.DEPARTMENT_ID = D.DEPARTMENT_ID
+                ) as SECTION_COUNT,
+                COUNT(S.ROLE_ID) as STUDENT_COUNT
+            FROM 
+                DEPARTMENT D
+            LEFT OUTER JOIN
+                BATCHDEPT BD
+            ON
+                BD.DEPARTMENT_ID = D.DEPARTMENT_ID
+            LEFT OUTER JOIN
+                BATCH B
+            ON
+                BD.BATCH_ID = B.BATCH_ID
+            LEFT OUTER JOIN
+                STUDENT S
+            ON 
+                S.DEPARTMENT_ID = BD.DEPARTMENT_ID AND S.BATCH_ID = B.BATCH_ID
+            WHERE
+                D.UNIVERSITY_ID = (${uniQuery})
+            GROUP BY
+                    D.DEPARTMENT_ID,D.DEPT_CODE, D.NAME, B.YEAR, B.BATCH_ID, B.BATCHOFSTYPE, B.NAME
+            ORDER BY
+                D.DEPT_CODE, B.BATCHOFSTYPE, B.YEAR
+        `
+        let result = await connection.execute(
+            query,
+            {id : ret.id},
+            {outFormat : oracledb.OUT_FORMAT_OBJECT}
+        )
+        return res.status(200).json(result.rows);
+
+    } catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
 router.route('/deptcodes')
 .get(async (req, res, next)=>{
     let cookie = req.signedCookies;
