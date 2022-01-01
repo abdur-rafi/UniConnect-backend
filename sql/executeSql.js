@@ -194,6 +194,96 @@ oracledb.createPool({
         await connection.commit();
     }
 
+
+    let generatePost = async()=>{
+        let type = 'ug';
+        let query = 
+        `
+                SELECT 
+                    S.ROLE_ID,
+                    department_id,
+                    gs.name as SECTION_GROUP,
+                    gbd.group_id as BATCH_DEPT_GROUP,
+                    gb.group_id as BATCH_GROUP,
+                    gds.group_id as DEPARTMENT_${type}_STUDENTS_GROUP,
+                    gdsa.group_id as DEPARTMENT_ALL_STUDENTS_GROUP,
+                    gdst.group_id as DEPARTMENT_STUDENTS_TEACHERS_GROUP,
+                    gus.group_id as UNIVERSITY_${type}_STUDENTS_GROUP,
+                    gusa.group_id as UNIVERSITY_ALL_STUDENTS_GROUP,
+                    gust.group_id as UNIVERSITY_STUDENTS_TEACHERS_GROUP
+        
+                FROM STUDENT S
+                LEFT OUTER JOIN
+                Section SC
+                USING (batch_id, department_id, section_name)
+                LEFT OUTER JOIN BATCHDEPT BD
+                USING (BATCH_ID, DEPARTMENT_ID)
+                LEFT OUTER JOIN
+                DEPARTMENT D
+                USING (DEPARTMENT_ID)
+                LEFT OUTER JOIN
+                UNIVERSITY U
+                ON
+                D.UNIVERSITY_ID = U.UNIVERSITY_ID
+                LEFT OUTER JOIN BATCH B
+                                USING (BATCH_ID)
+                LEFT OUTER JOIN PGROUP gS
+                ON gS.GROUP_ID = SC.GROUP_ID
+                LEFT OUTER JOIN PGROUP gbd
+                ON
+                    gbd.GROUP_ID = BD.GROUP_ID
+                LEFT OUTER JOIN PGROUP gb
+                ON gb.group_id = B.GROUP_ID
+                LEFT OUTER JOIN PGROUP gds
+                ON gds.group_id = D.${type}Students_group_id
+                LEFT OUTER JOIN PGROUP gdsa
+                ON gdsa.group_id = D.STUDENTS_GROUP_ID
+                LEFT OUTER JOIN PGROUP gdst
+                ON gdst.group_id = D.all_group_id
+                LEFT OUTER JOIN PGROUP gus
+                ON gus.group_id = U.students_group_id
+                LEFT OUTER JOIN PGROUP gust
+                ON gust.group_id = U.all_group_id
+                LEFT OUTER JOIN PGROUP gusa
+                ON gusa.group_id = U.${type}Students_group_id
+            `
+        let result = await connection.execute(
+            query
+        )
+        result.rows.forEach(async (row, rI) =>{
+            let roleId = row[0];
+            let groups = row.slice(3);
+            groups.forEach(async (g, gI)=>{
+                for(let i = 0; i < 4; ++i){
+                    let title = 'this is post title';
+                    let text = 'this is text. olashhd alsdjflkasjd f alsdfjlsa jdflkajs dfl ka;lsdjflksajdflkjasldf als;kdflasjdfljsaldjflaskjd lajsdlfkjs alkdjfalskjdf las;dfj ;alskdjf lkjsadflkj asd';
+                    let result2 = await connection.execute(
+                        `
+                            BEGIN
+                                :ret := CREATE_POST(
+                                    :text,
+                                    :roleId,
+                                    :title,
+                                    :groupId
+                                );
+                            END;
+                        `,
+                        {
+                            text : text,
+                            roleId : roleId,
+                            title : title,
+                            groupId : g,
+                            ret : {dir : oracledb.BIND_OUT, type : "POST%ROWTYPE"}
+                        },
+                        {autoCommit : true}
+                    )
+                    // console.log(result2.outBinds.ret); 
+                }
+            })
+            // console.log(groups);
+        })
+        // console.log(result);
+    }
     try{
         // let r = await connection.execute(`INSERT INTO PERSON(EMAIL, PASSWORD, TIMESTAMP) VALUES ('email1', 'password', '123')`, {}, {}, (err=>{
         //     console.log("err from callback");
@@ -213,7 +303,7 @@ oracledb.createPool({
         //     `
         // )
         // await sampleGenerate();
-        await generateTeacher();
+        // await generateTeacher();
 
         // console.log(r2);
     } catch(err){
@@ -224,6 +314,8 @@ oracledb.createPool({
     // await generateTeacher();
 
     // await sampleGenerate();
+
+    await generatePost();
 
     // let result = await connection.execute(
     //     'SELECT * FROM PERSON'
