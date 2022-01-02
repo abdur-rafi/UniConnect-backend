@@ -1,7 +1,7 @@
 import { NextFunction } from "express";
 import OracleDB from "oracledb";
 import { Response, Request } from "express";
-type loggedAs = 'Teacher' | 'Management' | 'Student';
+export type loggedAs = 'Teacher' | 'Management' | 'Student';
 export function closeConnection(connection : undefined | OracleDB.Connection){
     try{
         if(connection){

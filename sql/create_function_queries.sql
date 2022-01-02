@@ -262,3 +262,60 @@ BEGIN
     return teacherRow;
 end;
 
+
+CREATE OR REPLACE FUNCTION CREATE_CONTENT(
+    text_ CONTENT.TEXT%TYPE,
+    roleId number
+)
+RETURN CONTENT%rowtype
+IS
+    contentRow CONTENT%rowtype;
+BEGIN
+    INSERT INTO CONTENT(TEXT, ROLE_ID) VALUES (text_, roleId)
+    RETURNING CONTENT_ID,TEXT,POSTED_AT,ROLE_ID
+    INTO
+    contentRow.CONTENT_ID,contentRow.TEXT,contentRow.POSTED_AT,contentRow.ROLE_ID;
+    return contentRow;
+end;
+
+
+CREATE OR REPLACE FUNCTION CREATE_POST(
+    text_ CONTENT.TEXT%TYPE,
+    roleId number,
+    title_ POST.TITLE%TYPE,
+    groupId number
+)
+RETURN POST%rowtype
+IS
+    contentRow CONTENT%rowtype;
+    postRow POST%rowtype;
+BEGIN
+    contentRow := CREATE_CONTENT(text_, roleId);
+    INSERT INTO POST(content_id, title, group_id) VALUES (contentRow.CONTENT_ID,title_, groupId)
+    RETURNING CONTENT_ID, TITLE, GROUP_ID
+    INTO
+        postRow.CONTENT_ID, postRow.TITLE, postRow.GROUP_ID;
+    return postRow;
+end;
+
+CREATE OR REPLACE FUNCTION CREATE_COMMENT(
+    text_ CONTENT.TEXT%TYPE,
+    roleId number,
+    commentOf number
+)
+return COMMENT_%rowtype
+IS
+    contentRow CONTENT%rowtype;
+    commentRow COMMENT_%rowtype;
+BEGIN
+    contentRow := CREATE_CONTENT(text_, roleId);
+    INSERT INTO COMMENT_(CONTENT_ID, COMMENT_OF) VALUES (contentRow.CONTENT_ID, commentOf)
+    RETURNING CONTENT_ID, COMMENT_OF
+    INTO
+        commentRow.CONTENT_ID, commentRow.COMMENT_OF;
+    return commentRow;
+end;
+
+BEGIN
+    GENERATE_SAMPLE_DATA(5);
+end;
