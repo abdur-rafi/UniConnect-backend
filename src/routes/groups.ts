@@ -66,12 +66,12 @@ function selectAutoCreatedGroupsQuery(tableName : 'Teacher' | 'Student', type : 
                                 ON gdsa.group_id = D.STUDENTS_GROUP_ID
                 LEFT OUTER JOIN PGROUP gdst
                                 ON gdst.group_id = D.all_group_id
-                LEFT OUTER JOIN PGROUP gus
-                                ON gus.group_id = U.students_group_id
+                LEFT OUTER JOIN PGROUP gusa
+                                ON gusa.group_id = U.students_group_id
                 LEFT OUTER JOIN PGROUP gust
                                 ON gust.group_id = U.all_group_id
-                LEFT OUTER JOIN PGROUP gusa
-                                ON gusa.group_id = U.${type}Students_group_id
+                LEFT OUTER JOIN PGROUP gus
+                                ON gus.group_id = U.${type}Students_group_id
         WHERE S.ROLE_ID = :id
 `
     }
@@ -253,12 +253,12 @@ router.route('/posts')
                                             ON gdsa.group_id = D.STUDENTS_GROUP_ID
                             LEFT OUTER JOIN PGROUP gdst
                                             ON gdst.group_id = D.all_group_id
-                            LEFT OUTER JOIN PGROUP gus
-                                            ON gus.group_id = U.students_group_id
+                            LEFT OUTER JOIN PGROUP gusa
+                                            ON gusa.group_id = U.students_group_id
                             LEFT OUTER JOIN PGROUP gust
                                             ON gust.group_id = U.all_group_id
-                            LEFT OUTER JOIN PGROUP gusa
-                                            ON gusa.group_id = U.${type}Students_group_id
+                            LEFT OUTER JOIN PGROUP gus
+                                            ON gus.group_id = U.${type}Students_group_id
                     WHERE S.ROLE_ID = :id
                     )
             SELECT  P.*, G.*, C2.*, P2.FIRST_NAME || ' ' || p2.LAST_NAME as USER_NAME
@@ -530,13 +530,14 @@ router.route('/posts/:groupId/:from/:direction/:count/:order')
             
             let query = 
             `
-                SELECT P.*, PE.FIRST_NAME || ' ' || PE.LAST_NAME as NAME
+                SELECT P.*, PE.FIRST_NAME || ' ' || PE.LAST_NAME as USER_NAME, G.NAME as GROUP_NAME
                 FROM POST P
                 JOIN CONTENT C
                 ON C.CONTENT_ID = P.CONTENT_ID
+                JOIN PGROUP G ON C.GROUP_ID = G.GROUP_ID
                 JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = C.ROLE_ID
                 JOIN PERSON PE ON PE.PERSON_ID = AR.PERSON_ID
-                WHERE GROUP_ID = :gId  
+                WHERE C.GROUP_ID = :gId  
                 AND C.CONTENT_ID ${req.params.direction === 'after' ? '>' : '<'} :cId
                 ORDER BY posted_at ${req.params.order} FETCH NEXT :count ROW ONLY
             `
