@@ -310,16 +310,34 @@ oracledb.createPool({
         console.log(err);
         console.log(err.message);
     }
+
+    let generateComment = async ()=>{
+        let result = await connection.execute(`
+            SELECT CONTENT_ID, GROUP_ID FROM CONTENT
+        `
+        )
+        // console.log(result)
+        let contentIds = result.rows.map(r => r[0]);
+        let groupIds = result.rows.map(r => r[1]);
+        result = await connection.execute(
+            `SELECT ROLE_ID FROM ACADEMIC_ROLE`
+        )
+        contentIds.forEach((cId, i) =>{
+            let query = `
+                BEGIN
+                    :ret := CREATE_COMMENT('this is a comment', )
+                END;
+            `
+        })
+    }
     
     // await generateTeacher();
 
     // await sampleGenerate();
 
-    await generatePost();
+    // await generatePost();
+    await generateComment();
 
-    // let result = await connection.execute(
-    //     'SELECT * FROM PERSON'
-    // )
-    // console.log(result)
+    connection.close();
 
 })

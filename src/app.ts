@@ -23,7 +23,6 @@ oracledb.createPool({
 	connectString : "localhost/orcl"
 
 }).then(_ =>{
-	
 	let corsOptions : CorsOptions = {
 		credentials : true,
 		origin: 'http://localhost:3001',
@@ -32,7 +31,9 @@ oracledb.createPool({
 
 	nodeCleanup(()=>{
 		// console.log("here");
-		 oracledb.getPool().close();
+		_.close();
+
+		oracledb.getPool().close();
 	})
 	const app = express();
 	app.use(cors(corsOptions));
@@ -46,7 +47,7 @@ oracledb.createPool({
 	app.get('/', (req, res)=> {
 		res.send('Hello World');
 	})
-	app.use('/test', testRouter);
+	// app.use('/test', testRouter);
 	app.use('/user', userRouter);
 	app.use('/university', univarsityRouter);
 	app.use('/departments', departmentsRouter);

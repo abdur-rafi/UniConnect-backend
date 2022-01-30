@@ -47,6 +47,10 @@ export function noUserFound(next: NextFunction, res : Response){
 export function invalidCookie(next: NextFunction, res : Response){
     setLocals(401,'Invalid cookie', next, res);
 }
+export function notFound(next: NextFunction, res : Response){
+    setLocals(404,'Not found', next, res);
+}
+
 
 
 export function extractTableAndId(next : NextFunction, req : Request, res : Response) : null | {
@@ -95,7 +99,7 @@ export function getUniQuery(tableName : loggedAs) : string{
                 DEPARTMENT
             USING (DEPARTMENT_ID)
             WHERE
-                ${tableName}_ID = :id
+                ROLE_ID = :id
         `
     }
     else{

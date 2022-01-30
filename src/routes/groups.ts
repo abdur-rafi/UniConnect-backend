@@ -1,6 +1,6 @@
 import express, { NextFunction , Response} from 'express'
 import oracledb from 'oracledb'
-import { closeConnection, extractTableAndId, invalidForm, notAuthenticated, serverError, setLocals, unAuthorized } from '../reusableParts';
+import { closeConnection, extractTableAndId, invalidForm, notAuthenticated, notFound, serverError, setLocals, unAuthorized } from '../reusableParts';
 
 let router = express.Router()
 
@@ -145,14 +145,34 @@ async function checkIfInsideGroup(
         serverError(next, res);
         return false;
     }
-    finally{
-        return false;
-    }
     
 }
 
 router.route('/')
+.get(async (req, res, next) =>{
+    
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return;
+    let connection;
+    if(ret.tableName == 'Management'){
+        return unAuthorized(next, res);
+    }
+    try{
+        connection = await oracledb.getConnection();
+        
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
+
+router.route('/posts')
 .get(async (req, res, next)=>{
+
     let ret = extractTableAndId(next, req, res);
     if(!ret) return;
     let connection;
@@ -241,60 +261,63 @@ router.route('/')
                                             ON gusa.group_id = U.${type}Students_group_id
                     WHERE S.ROLE_ID = :id
                     )
-            SELECT  P.*, G.*, C2.*
+            SELECT  P.*, G.*, C2.*, P2.FIRST_NAME || ' ' || p2.LAST_NAME as USER_NAME
             FROM GROUPS G,
                 (
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.SECTION_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID WHERE C.GROUP_ID = G.SECTION_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.BATCH_DEPT_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID  WHERE C.GROUP_ID = G.BATCH_DEPT_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.BATCH_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID  WHERE C.GROUP_ID = G.BATCH_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT *
-                                        FROM POST P
-                                        WHERE P.GROUP_ID = G.DEPARTMENT_${type}_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID
+                                        FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                                        WHERE C.GROUP_ID = G.DEPARTMENT_UG_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT *
-                                        FROM POST P
-                                        WHERE P.GROUP_ID = G.DEPARTMENT_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID
+                                        FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                                        WHERE C.GROUP_ID = G.DEPARTMENT_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT *
-                                        FROM POST P
-                                        WHERE P.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID
+                                        FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                                        WHERE C.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT *
-                                        FROM POST P
-                                        WHERE P.GROUP_ID = G.UNIVERSITY_${type}_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID
+                                        FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                                        WHERE C.GROUP_ID = G.UNIVERSITY_UG_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT *
-                                        FROM POST P
-                                        WHERE P.GROUP_ID = G.UNIVERSITY_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID
+                                        FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                                        WHERE C.GROUP_ID = G.UNIVERSITY_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
-                            OUTER APPLY(SELECT *
-                                        FROM POST P
-                                        WHERE P.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                            OUTER APPLY(SELECT P.CONTENT_ID
+                                        FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                                        WHERE C.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                 ) T
 
                     LEFT OUTER JOIN POST P ON P.CONTENT_ID = T.CONTENT_ID
                     LEFT JOIN CONTENT C2 on P.CONTENT_ID = C2.CONTENT_ID
+                    JOIN ACADEMIC_ROLE AR on C2.ROLE_ID = AR.ROLE_ID JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+
+                    ORDER BY POSTED_AT
             
             `
                 
@@ -321,30 +344,33 @@ router.route('/')
                 LEFT OUTER JOIN PGROUP uga ON uga.GROUP_ID = U.ALL_GROUP_ID
                 WHERE T.ROLE_ID = :id
             )
-            SELECT P.*, G.*, C2.*
+            SELECT P.*, G.*, C2.*, P2.FIRST_NAME || ' ' || p2.LAST_NAME as USER_NAME
             FROM GROUPS G, (
-            
-                     SELECT A.CONTENT_ID
-                     FROM GROUPS G
-                              OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.DEPARTMENT_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                     UNION
-                     SELECT A.CONTENT_ID
-                     FROM GROUPS G
-                              OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                     UNION
-            
-                     SELECT A.CONTENT_ID
-                     FROM GROUPS G
-                              OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.UNIVERSITY_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                     UNION
-            
-                     SELECT A.CONTENT_ID
-                     FROM GROUPS G
-                              OUTER APPLY(SELECT * FROM POST P WHERE P.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                        
+                SELECT A.CONTENT_ID
+                FROM GROUPS G
+                         OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID  WHERE C.GROUP_ID = G.DEPARTMENT_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                UNION
+                SELECT A.CONTENT_ID
+                FROM GROUPS G
+                         OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID WHERE C.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                UNION
+       
+                SELECT A.CONTENT_ID
+                FROM GROUPS G
+                         OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID WHERE C.GROUP_ID = G.UNIVERSITY_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                UNION
+       
+                SELECT A.CONTENT_ID
+                FROM GROUPS G
+                         OUTER APPLY(SELECT P.CONTENT_ID FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID WHERE C.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                 ) T
             
                      LEFT OUTER JOIN POST P ON P.CONTENT_ID = T.CONTENT_ID
                      LEFT JOIN CONTENT C2 on P.CONTENT_ID = C2.CONTENT_ID
+                     JOIN ACADEMIC_ROLE AR on C2.ROLE_ID = AR.ROLE_ID JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+
+                     ORDER BY POSTED_AT
 
             `
         }
@@ -367,8 +393,9 @@ router.route('/')
     }
     
 })
-router.route('/:groupId')
+router.route('/posts/:groupId')
 .post(async (req, res, next)=>{
+
     let ret = extractTableAndId(next, req, res);
     if(!ret){
         return ;
@@ -392,7 +419,10 @@ router.route('/:groupId')
         if(!(groupId > 0)){
             return setLocals(400, 'invalid group id', next, res);
         }
-        if(await checkIfInsideGroup(connection, groupId,ret.id, ret.tableName, next, res)){
+        let r = await checkIfInsideGroup(connection, groupId, ret.id, ret.tableName, next, res);
+        if(r){
+            oracledb.fetchAsString = [oracledb.CLOB]
+            
             let postQuery = 
             `
                 BEGIN
@@ -405,7 +435,11 @@ router.route('/:groupId')
                 END;
             `;
             let result = await connection.execute<{
-                ret : {}
+                ret : {
+                    CONTENT_ID : number,
+                    TITLE : any,
+                    TEXT : any
+                }
             }>(
                 postQuery,
                 {
@@ -413,16 +447,33 @@ router.route('/:groupId')
                     roleId : ret.id,
                     title : title,
                     groupId : groupId,
-                    ret : {dir : oracledb.BIND_OUT, type : "POST%ROWTYPE"}
+                    ret : {dir : oracledb.BIND_OUT, type : "POST%ROWTYPE"},
+                    
+                },
+                {
+                    autoCommit : true
                 }
             )    
             if(!result || !result.outBinds){
                 return serverError(next, res);
             }
-            return res.status(200).json(result.outBinds.ret);
+            let query = 
+            `
+                SELECT * FROM POST JOIN CONTENT USING (CONTENT_ID) WHERE CONTENT_ID = :cId
+            `
+            let result2 = await connection.execute<{}>(query,{
+                cId : result.outBinds.ret.CONTENT_ID
+            }, {outFormat : oracledb.OUT_FORMAT_OBJECT})
+            if(!result2 || !result2.rows || result2.rows.length == 0){
+                return serverError(next, res);
+            }
+            return res.status(200).json(result2.rows);
+            
+        }
+        else{
+            return unAuthorized(next, res);
         }
 
-        // let postQuery 
 
     }
     catch(error){
@@ -433,6 +484,179 @@ router.route('/:groupId')
         closeConnection(connection);
     }
     
+})
+router.route('/posts/:groupId/:from/:direction/:count/:order')
+.get(async (req, res, next) =>{
+
+    
+    let ret = extractTableAndId(next, req, res);
+    if(!ret){
+        return ;
+    }
+    if(ret.tableName == 'Management'){
+        return unAuthorized(next, res);
+    }
+    let errorMessage;
+    if(req.params.order !== 'asc' && req.params.order !== 'desc'){
+        errorMessage = 'invalid order parameter'
+    }
+    else if(req.params.direction !== 'after' && req.params.direction !== 'before'){
+        errorMessage = 'invalid direction parameter'
+    }
+    if(errorMessage){
+        return setLocals(400, errorMessage, next, res);
+    }    
+    let connection;
+    
+    try{
+
+        connection = await oracledb.getConnection();
+        let groupId = parseInt(req.params.groupId);
+        if(!(groupId > 0)){
+            return setLocals(400, 'invalid group id', next, res);
+        }
+        let count = parseInt(req.params.count);
+        if(!(count > 0)){
+            return setLocals(400, 'invalid count', next , res);
+        }
+        let from = parseInt(req.params.from);
+        if(!(from > 0)){
+            return setLocals(400, 'invalid from parameter', next, res);
+        }
+        
+        let r = await checkIfInsideGroup(connection, groupId, ret.id, ret.tableName, next, res);
+        if(r){
+            oracledb.fetchAsString = [oracledb.CLOB]
+            
+            let query = 
+            `
+                SELECT P.*, PE.FIRST_NAME || ' ' || PE.LAST_NAME as NAME
+                FROM POST P
+                JOIN CONTENT C
+                ON C.CONTENT_ID = P.CONTENT_ID
+                JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = C.ROLE_ID
+                JOIN PERSON PE ON PE.PERSON_ID = AR.PERSON_ID
+                WHERE GROUP_ID = :gId  
+                AND C.CONTENT_ID ${req.params.direction === 'after' ? '>' : '<'} :cId
+                ORDER BY posted_at ${req.params.order} FETCH NEXT :count ROW ONLY
+            `
+            let result = await connection.execute<{}>(
+                query,
+                {
+                    gId : groupId,
+                    count : count,
+                    cId : from
+                },{
+                    outFormat : oracledb.OUT_FORMAT_OBJECT
+                }
+            )
+
+            if(!result || !result.rows){
+                return serverError(next, res);
+            }
+            return res.status(200).json(result.rows);
+        }
+        else{
+            return unAuthorized(next, res);
+        }
+
+
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
+
+router.route('/posts/:contentId')
+.get(async (req, res, next) =>{
+
+    let r = extractTableAndId(next, req, res);
+    if(!r) return ;
+    if(r.tableName == 'Management') return unAuthorized(next, res);
+    let contentId = parseInt(req.params.contentId);
+    let connection;
+    // console.log(contentId)
+    try{
+        connection = await oracledb.getConnection();
+        oracledb.fetchAsString = [oracledb.CLOB]
+
+        let query = `
+            SELECT * FROM CONTENT JOIN POST USING(CONTENT_ID) WHERE CONTENT_ID = :cId
+        `
+        let result = await connection.execute<{
+            GROUP_ID : number
+        }>(
+            query,
+            {
+                cId : contentId
+            },{
+                outFormat : oracledb.OUT_FORMAT_OBJECT
+            }
+        )
+        if(!result || !result.rows || result.rows.length == 0 ) return notFound(next, res);
+        let isAuthorized = await checkIfInsideGroup(connection, result.rows[0].GROUP_ID,r.id, r.tableName, next, res);
+        if(isAuthorized){
+            return res.status(200).json(result.rows);
+        }
+        else{
+            return unAuthorized(next, res);
+        }
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
+
+router.route('/comments/:contentId')
+.get(async (req, res, next) =>{
+    
+    let r = extractTableAndId(next, req, res);
+    if(!r) return ;
+    if(r.tableName == 'Management') return unAuthorized(next, res);
+    let contentId = parseInt(req.params.contentId);
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        oracledb.fetchAsString = [oracledb.CLOB]
+
+        let query = `
+            SELECT * FROM COMMENT_ JOIN CONTENT USING(CONTENT_ID) WHERE COMMENT_OF = :cId
+        `
+        let result = await connection.execute<{
+            GROUP_ID : number
+        }>(
+            query,
+            {
+                cId : contentId
+            },{
+                outFormat : oracledb.OUT_FORMAT_OBJECT
+            }
+        )
+        if(!result || !result.rows ) return notFound(next, res);
+        if(result.rows.length == 0) return res.status(200).json([]);
+        let isAuthorized = await checkIfInsideGroup(connection, result.rows[0].GROUP_ID,r.id, r.tableName, next, res);
+        if(isAuthorized){
+            return res.status(200).json(result.rows);
+        }
+        else{
+            return unAuthorized(next, res);
+        }
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
 })
 
 export default router;
