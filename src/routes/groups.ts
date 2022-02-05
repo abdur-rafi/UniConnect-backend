@@ -834,7 +834,7 @@ router.route('/posts/:groupId/:from/:direction/:count/:order')
             
             let query = 
             `
-                SELECT P.*, PE.FIRST_NAME || ' ' || PE.LAST_NAME as USER_NAME, G.NAME as GROUP_NAME
+                SELECT P.*, PE.FIRST_NAME || ' ' || PE.LAST_NAME as USER_NAME, G.NAME as GROUP_NAME, POSTED_AT
                 FROM POST P
                 JOIN CONTENT C
                 ON C.CONTENT_ID = P.CONTENT_ID
@@ -890,7 +890,13 @@ router.route('/posts/:contentId')
         oracledb.fetchAsString = [oracledb.CLOB]
 
         let query = `
-            SELECT * FROM CONTENT JOIN POST USING(CONTENT_ID) WHERE CONTENT_ID = :cId
+            SELECT PO.TITLE, C.*, P.FIRST_NAME || ' ' || P.LAST_NAME as USER_NAME, G.NAME AS GROUP_NAME
+            FROM CONTENT C
+                    JOIN POST PO ON C.CONTENT_ID = PO.CONTENT_ID
+                    JOIN ACADEMIC_ROLE A ON A.ROLE_ID = C.ROLE_ID
+                    JOIN PERSON P ON A.PERSON_ID = P.PERSON_ID
+                    JOIN PGROUP G ON C.GROUP_ID = G.GROUP_ID
+            WHERE C.CONTENT_ID = :cId
         `
         let result = await connection.execute<{
             GROUP_ID : number
