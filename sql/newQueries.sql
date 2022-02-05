@@ -292,4 +292,151 @@ JOIN CONTENT C1 ON C1.CONTENT_ID = CONTENT_IDS.CONTENT_ID
 JOIN POST P ON P.CONTENT_ID = C1.CONTENT_ID
 JOIN PGROUP GR on C1.GROUP_ID = GR.GROUP_ID
 JOIN ACADEMIC_ROLE AR on C1.ROLE_ID = AR.ROLE_ID
-JOIN PERSON PER on AR.PERSON_ID = PER.PERSON_ID
+JOIN PERSON PER on AR.PERSON_ID = PER.PERSON_ID;
+
+
+WITH GROUPS as
+         (SELECT gs.name       as SECTION_GROUP_NAME,
+                 gs.GROUP_ID   as SECTION_GROUP_ID,
+                 gbd.name      as BATCH_DEPT_GROUP_NAME,
+                 gbd.GROUP_ID  as BATCH_DEPT_GROUP_ID,
+                 gb.name       as BATCH_GROUP_NAME,
+                 gb.GROUP_ID   as BATCH_GROUP_ID,
+                 gds.name      as DEPARTMENT_UG_STUDENTS_GROUP_NAME,
+                 gds.GROUP_ID  as DEPARTMENT_UG_STUDENTS_GROUP_ID,
+                 gdsa.name     as DEPARTMENT_ALL_STUDENTS_GROUP_NAME,
+                 gdsa.GROUP_ID as DEPARTMENT_ALL_STUDENTS_GROUP_ID,
+
+                 gdst.name     as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
+                 gdst.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
+
+                 gus.name      as UNIVERSITY_UG_STUDENTS_GROUP_NAME,
+                 gus.GROUP_ID  as UNIVERSITY_UG_STUDENTS_GROUP_ID,
+
+                 gusa.name     as UNIVERSITY_ALL_STUDENTS_GROUP_NAME,
+                 gusa.GROUP_ID as UNIVERSITY_ALL_STUDENTS_GROUP_ID,
+
+                 gust.name     as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
+                 gust.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID
+
+          FROM STUDENT S
+                   LEFT OUTER JOIN
+               Section SC
+               USING (batch_id, department_id, section_name)
+                   LEFT OUTER JOIN BATCHDEPT BD
+                                   USING (BATCH_ID, DEPARTMENT_ID)
+                   LEFT OUTER JOIN
+               DEPARTMENT D
+               USING (DEPARTMENT_ID)
+                   LEFT OUTER JOIN
+               UNIVERSITY U
+               ON
+                   D.UNIVERSITY_ID = U.UNIVERSITY_ID
+                   LEFT OUTER JOIN BATCH B
+                                   USING (BATCH_ID)
+                   LEFT OUTER JOIN PGROUP gS
+                                   ON gS.GROUP_ID = SC.GROUP_ID
+
+                   LEFT OUTER JOIN PGROUP gbd
+                                   ON
+                                       gbd.GROUP_ID = BD.GROUP_ID
+
+                   LEFT OUTER JOIN PGROUP gb
+                                   ON gb.group_id = B.GROUP_ID
+                   LEFT OUTER JOIN PGROUP gds
+                                   ON gds.group_id = D.${type}Students_group_id
+                   LEFT OUTER JOIN PGROUP gdsa
+                                   ON gdsa.group_id = D.STUDENTS_GROUP_ID
+                   LEFT OUTER JOIN PGROUP gdst
+                                   ON gdst.group_id = D.all_group_id
+                   LEFT OUTER JOIN PGROUP gusa
+                                   ON gusa.group_id = U.students_group_id
+                   LEFT OUTER JOIN PGROUP gust
+                                   ON gust.group_id = U.all_group_id
+                   LEFT OUTER JOIN PGROUP gus
+                                   ON gus.group_id = U.${type}Students_group_id
+          WHERE S.ROLE_ID = :id
+         )
+
+SELECT C1.CONTENT_ID, C1.GROUP_ID, C1.TEXT, P.TITLE, C1.POSTED_AT,GR.NAME as GROUP_NAME, PER.FIRST_NAME || ' ' || PER.LAST_NAME as USERNAME,
+        COMMENT_COUNT, UPVOTE, DOWNVOTE
+FROM
+(
+SELECT T.CONTENT_ID, COUNT(COM1.CONTENT_ID) as COMMENT_COUNT, COUNT(V1.CONTENT_ID) as UPVOTE, COUNT(V2.CONTENT_ID) as DOWNVOTE
+FROM
+     (
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.SECTION_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.BATCH_DEPT_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.BATCH_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.DEPARTMENT_UG_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.DEPARTMENT_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.UNIVERSITY_UG_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.UNIVERSITY_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+         UNION
+         SELECT A.CONTENT_ID
+         FROM GROUPS G
+                  OUTER APPLY(SELECT P.CONTENT_ID
+                              FROM POST P
+                                       JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
+                              WHERE C.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+     ) T
+
+    LEFT OUTER JOIN COMMENT_ COM1 ON COM1.COMMENT_OF = T.CONTENT_ID
+    LEFT OUTER JOIN VOTE V1 ON V1.CONTENT_ID = T.CONTENT_ID AND V1.DOWN = 'N'
+    LEFT OUTER JOIN VOTE V2 ON V2.CONTENT_ID = T.CONTENT_ID AND V2.DOWN != 'N'
+    GROUP BY T.CONTENT_ID
+) CONTENT_IDS
+
+JOIN CONTENT C1 ON C1.CONTENT_ID = CONTENT_IDS.CONTENT_ID
+JOIN POST P ON P.CONTENT_ID = C1.CONTENT_ID
+JOIN PGROUP GR on C1.GROUP_ID = GR.GROUP_ID
+JOIN ACADEMIC_ROLE AR on C1.ROLE_ID = AR.ROLE_ID
+JOIN PERSON PER on AR.PERSON_ID = PER.PERSON_ID;
