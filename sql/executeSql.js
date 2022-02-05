@@ -359,14 +359,42 @@ oracledb.createPool({
         let contentIds = result.rows.map(r => r[0]);
         let groupIds = result.rows.map(r => r[1]);
         result = await connection.execute(
+            'SELECT ROLE_ID FROM ACADEMIC_ROLE'
+        );
+        let roleIds = result.rows.map(r => r[0]);
+
+        result = await connection.execute(
             `SELECT ROLE_ID FROM ACADEMIC_ROLE`
         )
-        contentIds.forEach((cId, i) =>{
+        contentIds.forEach(async (cId, i) =>{
             let query = `
+                DECLARE
+                    ret COMMENT_%ROWTYPE;
                 BEGIN
-                    :ret := CREATE_COMMENT('this is a comment', )
+                    ret := CREATE_COMMENT('this is a comment', :roleId, :commentOf);
                 END;
             `
+            let randomIdx = Math.floor(Math.random() * roleIds.length);
+            let randomRoleId = roleIds[randomIdx];
+            let res2 = await connection.execute(query, {
+                roleId : randomRoleId,
+                commentOf : cId
+            })
+            randomIdx = Math.floor(Math.random() * roleIds.length);
+            randomRoleId = roleIds[randomIdx];
+            res2 = await connection.execute(query, {
+                roleId : randomRoleId,
+                commentOf : cId
+            })
+
+            randomIdx = Math.floor(Math.random() * roleIds.length);
+            randomRoleId = roleIds[randomIdx];
+            res2 = await connection.execute(query, {
+                roleId : randomRoleId,
+                commentOf : cId
+            })
+
+            // console.log(res2);
         })
     }
     
@@ -376,7 +404,8 @@ oracledb.createPool({
 
     // await generatePost();
     // await generateComment();
-    await generateCustomGroups();
+    // await generateCustomGroups();
+    await generateComment();
     await connection.commit();
 
     connection.close();
