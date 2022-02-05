@@ -311,6 +311,45 @@ oracledb.createPool({
         console.log(err.message);
     }
 
+
+    let generateCustomGroups = async ()=>{
+        let query = 'SELECT ROLE_ID FROM ACADEMIC_ROLE';
+        let result = await connection.execute(query);
+        // console.log(result.rows);
+        console.log(result.rows.length);
+        let rows = result.rows;
+
+        for(let i = 0; i + 2 < result.rows.length; ++i){
+            query = `
+            DECLARE 
+                t PGROUP%ROWTYPE;
+            BEGIN
+                t := CREATE_GROUP(:groupName);
+                INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES(t.GROUP_ID, :roleId1, :mRole1);
+                INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES(t.GROUP_ID, :roleId2, :mRole2);
+                INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES(t.GROUP_ID, :roleId3, :mRole3);
+            end;
+            `;
+            // console.log(result.rows[i])
+
+            let groupName =`Group of id: ${rows[i][0]}, ${rows[i + 1][0]}, ${rows[i + 2][0]}`
+            let result2 = await connection.execute(query,{
+                groupName : groupName,
+                roleId1 : rows[i][0],
+                mRole1 : 'adm',
+                roleId2 : rows[i + 1][0],
+                mRole2 : 'mod',
+                roleId3 : rows[i + 2][0],
+                mRole3 : 'mem',
+                
+            });
+            // console.log(result);
+            
+        }
+        
+    }
+
+
     let generateComment = async ()=>{
         let result = await connection.execute(`
             SELECT CONTENT_ID, GROUP_ID FROM CONTENT
@@ -336,7 +375,9 @@ oracledb.createPool({
     // await sampleGenerate();
 
     // await generatePost();
-    await generateComment();
+    // await generateComment();
+    await generateCustomGroups();
+    await connection.commit();
 
     connection.close();
 

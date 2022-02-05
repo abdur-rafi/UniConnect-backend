@@ -1,3 +1,4 @@
+import e from 'express';
 import express, { NextFunction , Response} from 'express'
 import oracledb from 'oracledb'
 import { closeConnection, extractTableAndId, invalidForm, notAuthenticated, notFound, serverError, setLocals, unAuthorized } from '../reusableParts';
@@ -148,7 +149,7 @@ async function checkIfInsideGroup(
     
 }
 
-router.route('/')
+router.route('/defaults')
 .get(async (req, res, next) =>{
     
     let ret = extractTableAndId(next, req, res);
@@ -159,7 +160,224 @@ router.route('/')
     }
     try{
         connection = await oracledb.getConnection();
+        let query : string;
+        if(ret.tableName == 'Student'){
+            
+            let type = 'pg';
+            let result = await connection.execute<{
+                STYPE : string
+            }>(
+                selectStudentTypeQuery(),
+                {id : ret.id},
+                {outFormat : oracledb.OUT_FORMAT_OBJECT}
+            );
+            if(!result || !result.rows || result.rows.length == 0){
+                return notAuthenticated(next, res);
+            }
+            type = result.rows[0].STYPE;
+            console.log(type);
+            query = `
         
+                    
+
+                    SELECT gs.GROUP_ID   as SECTION_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gs.GROUP_ID) as SECTION_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gs.GROUP_ID) as SECTION_GROUP_POST_COUNT,
+                    COUNT_INFO.SECTION_STUDENTS_COUNT as SECTION_GROUP_MEMBER_COUNT,
+            
+                    gbd.GROUP_ID  as BATCH_DEPT_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gbd.GROUP_ID) as BATCH_DEPT_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gbd.GROUP_ID) as BATCH_DEPT_GROUP_POST_COUNT,
+                    COUNT_INFO.BATCH_DEPT_STUDENTS_COUNT as BATCH_DEPT_GROUP_MEMBER_COUNT,
+            
+                    gb.GROUP_ID   as BATCH_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gb.GROUP_ID) as BATCH_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gb.GROUP_ID) as BATCH_GROUP_POST_COUNT,
+                    COUNT_INFO.BATCH_STUDENTS_COUNT as BATCH_GROUP_MEMBER_COUNT,
+            
+                    gds.GROUP_ID  as DEPARTMENT_${type}_STUDENTS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gds.GROUP_ID) as DEPARTMENT_${type}_STUDENTS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gds.GROUP_ID) as DEPARTMENT_${type}_STUDENTS_GROUP_POST_COUNT,
+                    COUNT_INFO.DEPARTMENT_${type}_STUDENTS_COUNT as DEPARTMENT_${type}_STUDENTS_GROUP_MEMBER_COUNT,
+            
+                    gdsa.GROUP_ID as DEPARTMENT_ALL_STUDENTS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gdsa.GROUP_ID) as DEPARTMENT_ALL_STUDENTS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gdsa.GROUP_ID) as DEPARTMENT_ALL_STUDENTS_GROUP_POST_COUNT,
+                    COUNT_INFO.DEPARTMENT_ALL_STUDENTS_COUNT as DEPARTMENT_ALL_STUDENTS_GROUP_MEMBER_COUNT,
+            
+                    gdst.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gdst.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gdst.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_POST_COUNT,
+                    COUNT_INFO.DEPARTMENT_ALL_STUDENTS_COUNT + COUNT_INFO.DEPARTMENT_TEACHERS_COUNT as DEPARTMENT_STUDENTS_TEACHERS_MEMBER_POST_COUNT,
+            
+                    gus.GROUP_ID  as UNIVERSITY_${type}_STUDENTS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gus.GROUP_ID) as UNIVERSITY_${type}_STUDENTS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gus.GROUP_ID) as UNIVERSITY_${type}_STUDENTS_GROUP_POST_COUNT,
+                    COUNT_INFO.UNIVERSITY_${type}_STUDENTS_COUNT as UNIVERSITY_${type}_STUDENTS_GROUP_MEMBER_COUNT,
+            
+                    gusa.GROUP_ID as UNIVERSITY_ALL_STUDENTS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gusa.GROUP_ID) as UNIVERSITY_ALL_STUDENTS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gusa.GROUP_ID) as UNIVERSITY_ALL_STUDENTS_GROUP_POST_COUNT,
+                    COUNT_INFO.UNIVERSITY_STUDENTS_COUNT as UNIVERSITY_ALL_STUDENTS_GROUP_MEMBER_COUNT,
+            
+                    gust.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gust.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gust.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_POST_COUNT,
+                    COUNT_INFO.UNIVERSITY_STUDENTS_COUNT + COUNT_INFO.UNIVERSITY_TEACHERS_COUNT as UNIVERSITY_STUDENTS_TEACHERS_GROUP_MEMBER_COUNT
+            
+                    FROM STUDENT S
+                    JOIN (SELECT S2.DEPARTMENT_ID,
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                            WHERE S.SECTION_NAME = S.SECTION_NAME
+                            AND S.BATCH_ID = S.BATCH_ID
+                            AND S.DEPARTMENT_ID = S.DEPARTMENT_ID
+                            )             as SECTION_STUDENTS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                            WHERE S.BATCH_ID = S2.BATCH_ID
+                            AND S.DEPARTMENT_ID = S2.DEPARTMENT_ID
+                            )             as BATCH_DEPT_STUDENTS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                            WHERE S.BATCH_ID = S2.BATCH_ID
+                            )             as BATCH_STUDENTS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                            WHERE S.DEPARTMENT_ID = S2.DEPARTMENT_ID
+                            )             as DEPARTMENT_ALL_STUDENTS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM TEACHER T
+                            WHERE T.DEPARTMENT_ID = S2.DEPARTMENT_ID
+                            )             as DEPARTMENT_TEACHERS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM TEACHER T
+                                    JOIN DEPARTMENT D3 on T.DEPARTMENT_ID = D3.DEPARTMENT_ID
+                            WHERE D3.UNIVERSITY_ID = D2.UNIVERSITY_ID
+                            )             as UNIVERSITY_TEACHERS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                                    JOIN DEPARTMENT D3 on S.DEPARTMENT_ID = D3.DEPARTMENT_ID
+                            WHERE D3.UNIVERSITY_ID = D2.UNIVERSITY_ID
+                            )             as UNIVERSITY_STUDENTS_COUNT,
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                                    JOIN BATCH B3 on S.BATCH_ID = B3.BATCH_ID
+                            WHERE B3.UNIVERSITY_ID = D2.UNIVERSITY_ID
+                            AND B3.BATCHOFSTYPE = B2.BATCHOFSTYPE
+                            )             as UNIVERSITY_${type}_STUDENTS_COUNT,
+
+                            (SELECT COUNT(*)
+                            FROM STUDENT S
+                                    JOIN BATCH B3 on S.BATCH_ID = B3.BATCH_ID
+                                    JOIN DEPARTMENT D4 on S.DEPARTMENT_ID = D4.DEPARTMENT_ID
+                            WHERE D4.DEPARTMENT_ID = S2.DEPARTMENT_ID
+                            AND B3.BATCHOFSTYPE = B2.BATCHOFSTYPE
+                            )             as DEPARTMENT_${type}_STUDENTS_COUNT
+
+
+                            FROM STUDENT S2
+                                    JOIN DEPARTMENT D2 on S2.DEPARTMENT_ID = D2.DEPARTMENT_ID
+                                    JOIN BATCH B2 ON B2.BATCH_ID = S2.BATCH_ID
+                            WHERE S2.ROLE_ID = :id
+                    ) COUNT_INFO
+                    ON COUNT_INFO.DEPARTMENT_ID = S.DEPARTMENT_ID
+                    LEFT OUTER JOIN
+                    Section SC
+                        ON S.BATCH_ID = SC.BATCH_ID AND S.DEPARTMENT_ID = Sc.DEPARTMENT_ID AND S.SECTION_NAME = Sc.SECTION_NAME
+                    LEFT OUTER JOIN BATCHDEPT BD
+                        ON S.DEPARTMENT_ID = Bd.DEPARTMENT_ID AND S.BATCH_ID = Bd.BATCH_ID
+                    LEFT OUTER JOIN
+                    DEPARTMENT D
+                    ON D.DEPARTMENT_ID = S.DEPARTMENT_ID
+                    LEFT OUTER JOIN
+                    UNIVERSITY U
+                    ON
+                    D.UNIVERSITY_ID = U.UNIVERSITY_ID
+                    LEFT OUTER JOIN BATCH B
+                                    ON B.BATCH_ID = S.BATCH_ID
+                    LEFT OUTER JOIN PGROUP gS
+                                    ON gS.GROUP_ID = SC.GROUP_ID
+
+                    LEFT OUTER JOIN PGROUP gbd
+                                    ON
+                                        gbd.GROUP_ID = BD.GROUP_ID
+
+                    LEFT OUTER JOIN PGROUP gb
+                                    ON gb.group_id = B.GROUP_ID
+                    LEFT OUTER JOIN PGROUP gds
+                                    ON gds.group_id = D.${type}Students_group_id
+                    LEFT OUTER JOIN PGROUP gdsa
+                                    ON gdsa.group_id = D.STUDENTS_GROUP_ID
+                    LEFT OUTER JOIN PGROUP gdst
+                                    ON gdst.group_id = D.all_group_id
+                    LEFT OUTER JOIN PGROUP gusa
+                                    ON gusa.group_id = U.students_group_id
+                    LEFT OUTER JOIN PGROUP gust
+                                    ON gust.group_id = U.all_group_id
+                    LEFT OUTER JOIN PGROUP gus
+                                    ON gus.group_id = U.${type}Students_group_id
+                    WHERE S.ROLE_ID = :id
+            `
+        }
+        else{
+            query = `
+                
+                    SELECT dgt.GROUP_ID as DEPARTMENT_TEACHERS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = dgt.GROUP_ID) as DEPARTMENT_TEACHERS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = dgt.GROUP_ID) as DEPARTMENT_TEACHERS_GROUP_POSTS_COUNT,
+                    COUNT_INFO.DEPARTMENT_TEACHER_COUNT as DEPARTMENT_TEACHERS_GROUP_MEMBERS_COUNT,
+
+                    dga.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = dga.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = dga.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_POSTS_COUNT,
+                    COUNT_INFO.DEPARTMENT_TEACHER_COUNT + COUNT_INFO.DEPARTMENT_STUDENT_COUNT as DEPARTMENT_STUDENTS_TEACHERS_GROUP_MEMBERS_COUNT,
+
+
+                    uga.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = uga.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = uga.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_POSTS_COUNT,
+                    COUNT_INFO.UNIVERSITY_STUDENT_COUNT + COUNT_INFO.UNIVERSITY_TEACHER_COUNT as UNIVERSITY_STUDENTS_TEACHERS_GROUP_MEMBERS_COUNT,
+
+                    ugt.GROUP_ID as UNIVERSITY_TEACHERS_GROUP_ID,
+                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = ugt.GROUP_ID) as UNIVERSITY_TEACHERS_GROUP_NAME,
+                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = ugt.GROUP_ID) as UNIVERSITY_TEACHERS_GROUP_POSTS_COUNT,
+                    COUNT_INFO.UNIVERSITY_TEACHER_COUNT as UNIVERSITY_TEACHERS_GROUP_MEMBERS_COUNT
+
+
+                    FROM TEACHER T
+                    JOIN (SELECT
+                        D3.DEPARTMENT_ID,
+                        (SELECT COUNT(*) FROM TEACHER T2 WHERE T2.DEPARTMENT_ID = D3.DEPARTMENT_ID) as DEPARTMENT_TEACHER_COUNT,
+                        (SELECT COUNT(*) FROM STUDENT S2 WHERE S2.DEPARTMENT_ID = D3.DEPARTMENT_ID) as DEPARTMENT_STUDENT_COUNT,
+                        (SELECT COUNT(*) FROM TEACHER T2 WHERE T2.DEPARTMENT_ID = UNIVERSITY_ID) as UNIVERSITY_TEACHER_COUNT,
+                        (SELECT COUNT(*) FROM STUDENT S2 WHERE S2.DEPARTMENT_ID = UNIVERSITY_ID) as UNIVERSITY_STUDENT_COUNT
+                        FROM TEACHER T2 JOIN DEPARTMENT D3 on
+                        T2.DEPARTMENT_ID = D3.DEPARTMENT_ID WHERE T2.ROLE_ID = :id
+                    )
+                    COUNT_INFO
+                    ON T.DEPARTMENT_ID = COUNT_INFO.DEPARTMENT_ID
+                    JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
+                    JOIN UNIVERSITY U on D.UNIVERSITY_ID = U.UNIVERSITY_ID
+                    LEFT OUTER JOIN PGROUP dgt ON dgt.GROUP_ID = D.TEACHERS_GROUP_ID
+                    LEFT OUTER JOIN PGROUP dga On dga.GROUP_ID = D.ALL_GROUP_ID
+                    LEFT OUTER JOIN PGROUP ugt ON ugt.GROUP_ID = U.TEACHERS_GROUP_ID
+                    LEFT OUTER JOIN PGROUP uga ON uga.GROUP_ID = U.ALL_GROUP_ID
+                    WHERE T.ROLE_ID =  :id
+            `
+        }
+
+        let result = await connection.execute(
+            query,
+            {id : ret.id},
+            {outFormat : oracledb.OUT_FORMAT_OBJECT}
+        );
+        if(!result || !result.rows || result.rows.length == 0){
+            return serverError(next, res);
+        }
+        res.status(200).json(result.rows);
+    
+
     }
     catch(error){
         console.log(error);
@@ -169,7 +387,93 @@ router.route('/')
         closeConnection(connection);
     }
 })
-
+router.route('/custom')
+.get(async (req, res, next) =>{
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return;
+    let connection;
+    if(ret.tableName == 'Management'){
+        return unAuthorized(next, res);
+    }
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+            SELECT G.GROUP_ID, G.NAME, COUNT(GM2.ROLE_ID) as GROUP_MEMBERS_COUNT,GM1.MEMBER_ROLE,
+            COUNT(P.CONTENT_ID) as GROUP_POSTS_COUNT
+            FROM GROUP_MEMBER GM1
+            JOIN PGROUP G on GM1.GROUP_ID = G.GROUP_ID
+            JOIN GROUP_MEMBER GM2 ON GM2.GROUP_ID = G.GROUP_ID
+            LEFT OUTER JOIN CONTENT C2 on G.GROUP_ID = C2.GROUP_ID
+            LEFT OUTER JOIN POST P on C2.CONTENT_ID = P.CONTENT_ID
+            WHERE GM1.ROLE_ID = :id
+            GROUP BY GM1.ROLE_ID, G.GROUP_ID, G.NAME, GM1.MEMBER_ROLE
+        `;
+        let result = await connection.execute(query, {
+            id : ret.id
+        }, {
+            outFormat : oracledb.OUT_FORMAT_OBJECT
+        });
+        if(!result.rows) return serverError(next, res);
+        return res.status(200).json(result.rows);
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
+.post(async (req, res , next) =>{
+    
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return;
+    let connection;
+    if(ret.tableName == 'Management'){
+        return unAuthorized(next, res);
+    }
+    try{
+        connection = await oracledb.getConnection();
+        let body = req.body;
+        let groupName : string = body.groupName;
+        if(!groupName || groupName.length < 3){
+            return setLocals(400, 'group name should be longer', next, res);
+        }
+        let query = `
+        DECLARE 
+        t PGROUP%ROWTYPE;
+        BEGIN
+            t := CREATE_GROUP(:groupName);
+            INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) 
+            VALUES (t.GROUP_ID,:roleId, :mRole);
+            :gr := t;
+        end;
+        `
+        let result = await connection.execute<{
+            gr : {}
+        }>(query,{
+            roleId : ret.id,
+            mRole : 'adm',
+            groupName : groupName,
+            gr : {dir : oracledb.BIND_OUT, type : "PGROUP%ROWTYPE"},
+        },
+        {
+            outFormat : oracledb.OUT_FORMAT_OBJECT,
+            autoCommit : true
+        });
+        if(!result.outBinds || !result.outBinds.gr ){
+            return serverError(next, res);
+        }
+        return res.status(200).json(result.outBinds.gr);
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
 router.route('/posts')
 .get(async (req, res, next)=>{
 
@@ -280,7 +584,7 @@ router.route('/posts')
                     FROM GROUPS G
                             OUTER APPLY(SELECT P.CONTENT_ID
                                         FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                        WHERE C.GROUP_ID = G.DEPARTMENT_UG_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                                        WHERE C.GROUP_ID = G.DEPARTMENT_${type}_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
@@ -298,7 +602,7 @@ router.route('/posts')
                     FROM GROUPS G
                             OUTER APPLY(SELECT P.CONTENT_ID
                                         FROM POST P JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                        WHERE C.GROUP_ID = G.UNIVERSITY_UG_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
+                                        WHERE C.GROUP_ID = G.UNIVERSITY_${type}_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
                     UNION
                     SELECT A.CONTENT_ID
                     FROM GROUPS G
