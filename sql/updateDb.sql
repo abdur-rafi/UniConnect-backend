@@ -1,64 +1,336 @@
+-- ALTER TABLE PGROUP ADD USER_CREATED CHAR(1) DEFAULT ('N');
+-- create OR REPLACE FUNCTION CREATE_GROUP(
+--     grName PGROUP.name%TYPE,
+--     user_created_ PGROUP.USER_CREATED%TYPE := 'N'
+-- )
+-- return pGroup%rowtype
+-- AS
+--     row PGROUP%rowtype;
+-- BEGIN
+--     INSERT INTO PGROUP(NAME,USER_CREATED) VALUES (grName, user_created_) returning group_id, name, timestamp, USER_CREATED
+--         INTO row.group_id, row.name, row.timestamp, row.USER_CREATED;
+--     return row;
+-- end;
 
-ALTER TABLE COMMENT_ ADD TIME TIMESTAMP  DEFAULT(SYSDATE);
-ALTER TABLE COMMENT_ RENAME COLUMN TIME TO POSTED_AT;
-
-create FUNCTION CREATE_CONTENT(
-    text_ CONTENT.TEXT%TYPE,
-    roleId number,
-    groupId number
-)
-RETURN CONTENT%rowtype
-IS
-    contentRow CONTENT%rowtype;
-BEGIN
-    INSERT INTO CONTENT(TEXT, ROLE_ID, GROUP_ID) VALUES (text_, roleId, groupId)
-    RETURNING CONTENT_ID,TEXT,POSTED_AT,ROLE_ID, GROUP_ID
-    INTO
-    contentRow.CONTENT_ID,contentRow.TEXT,contentRow.POSTED_AT,contentRow.ROLE_ID, contentRow.GROUP_ID;
-    return contentRow;
-end;
-/
-
-create FUNCTION CREATE_POST(
-    text_ CONTENT.TEXT%TYPE,
-    roleId number,
-    title_ POST.TITLE%TYPE,
-    groupId number
-)
-RETURN POST%rowtype
-IS
-    contentRow CONTENT%rowtype;
-    postRow POST%rowtype;
-BEGIN
-    contentRow := CREATE_CONTENT(text_, roleId, groupId);
-    INSERT INTO POST(content_id, title) VALUES (contentRow.CONTENT_ID,title_)
-    RETURNING CONTENT_ID, TITLE
-    INTO
-        postRow.CONTENT_ID, postRow.TITLE;
-    return postRow;
-end;
-/
+-- ALTER TABLE BATCH RENAME COLUMN GROUP_ID TO BATCH_GROUP_ID;
+--
+-- create OR REPLACE FUNCTION CREATE_BATCH(
+--     batchName BATCH.name%TYPE,
+--     universityId number,
+--     batchYear number,
+--     sType BATCH.BATCHOFSTYPE%TYPE
+-- )
+-- return BATCH%rowtype
+-- As
+--     groupId number;
+--     batchRow BATCH%rowtype;
+-- BEGIN
+--     INSERT INTO PGROUP(Name) VALUES (batchName) RETURNING group_id INTO groupId;
+--     INSERT INTO Batch(NAME, UNIVERSITY_ID, BATCH_GROUP_ID, YEAR,BATCHOFSTYPE) VALUES (batchName, universityId, groupId, batchYear, sType)
+--     returning BATCH_ID, NAME, UNIVERSITY_ID, BATCH_GROUP_ID, YEAR, batchOfsType
+--     INTO  batchRow.batch_id, batchRow.name, batchRow.university_id, batchRow.BATCH_group_id, batchRow.year, batchRow.batchOfsType;
+--     return batchRow;
+-- end;
+-- /
 
 
+-- ALTER TABLE BATCHDEPT RENAME COLUMN GROUP_ID TO BATCH_DEPT_GROUP_ID;
+--
+-- create OR REPLACE FUNCTION CREATE_BATCH_DEPT(
+--     batchId number,
+--     departmentId number
+-- )
+-- RETURN BATCHDEPT%rowtype
+-- AS
+--
+--     groupId number;
+--     batchDeptRow BATCHDEPT%rowtype;
+--     buId number;
+--     duId number;
+-- BEGIN
+--     SELECT university_id INTO buId FROM Batch WHERE batch_id = batchId;
+--     SELECT university_id INTO duId FROM Department WHERE department_id = departmentId;
+--     IF buId != duId THEN
+--         raise_application_error(-1000, 'BATCH AND DEPARTMENT NOT IN SAME UNIVERSITY');
+--     end if;
+--     INSERT INTO pGroup(Name) VALUES
+--     ((SELECT Name FROM DEPARTMENT WHERE department_id = departmentId) || '-' || (SELECT YEAR FROM BATCH WHERE batch_id = batchId)) returning group_id INTO groupId ;
+--     INSERT INTO BATCHDEPT(batch_id, department_id, BATCH_DEPT_GROUP_ID) VALUES (batchId, departmentId, groupId) RETURNING
+--     batch_id, department_id, BATCH_DEPT_GROUP_ID INTO batchDeptRow.batch_id, batchDeptRow.department_id, batchDeptRow.BATCH_DEPT_GROUP_ID;
+--     return batchDeptRow;
+-- end;
+-- /
+--
+-- create OR REPLACE FUNCTION CREATE_BATCH_DEPT_FOR_SAMPLE(
+--     batchId number,
+--     departmentId number,
+--     batchName BATCH.name%TYPE,
+--     deptName DEPARTMENT.name%TYPE
+-- )
+-- RETURN BATCHDEPT%rowtype
+-- AS
+--
+--     groupId number;
+--     batchDeptRow BATCHDEPT%rowtype;
+-- BEGIN
+--     INSERT INTO pGroup(Name) VALUES
+--     (deptName || '-' || batchName) returning group_id INTO groupId ;
+--     INSERT INTO BATCHDEPT(batch_id, department_id, BATCH_DEPT_GROUP_ID) VALUES (batchId, departmentId, groupId) RETURNING
+--     batch_id, department_id, BATCH_DEPT_GROUP_ID INTO batchDeptRow.batch_id, batchDeptRow.department_id, batchDeptRow.BATCH_DEPT_GROUP_ID;
+--     return batchDeptRow;
+-- end;
+-- /
 
-create OR REPLACE FUNCTION CREATE_COMMENT(
-    text_ CONTENT.TEXT%TYPE,
-    roleId number,
-    commentOf number
-)
-return COMMENT_%rowtype
-IS
-    contentRow CONTENT%rowtype;
-    commentRow COMMENT_%rowtype;
-    groupId Number;
-BEGIN
-    SELECT GROUP_ID INTO groupId FROM CONTENT WHERE CONTENT_ID = commentOf;
-    contentRow := CREATE_CONTENT(text_, roleId, groupId);
-    INSERT INTO COMMENT_(CONTENT_ID, COMMENT_OF) VALUES (contentRow.CONTENT_ID, commentOf)
-    RETURNING CONTENT_ID, COMMENT_OF, POSTED_AT
-    INTO
-        commentRow.CONTENT_ID, commentRow.COMMENT_OF, commentRow.POSTED_AT;
-    return commentRow;
-end;
-/
+-- ALTER TABLE SECTION RENAME COLUMN GROUP_ID TO SECTION_GROUP_ID;
+--
+-- create OR REPLACE FUNCTION CREATE_SECTION(
+--     batchId number,
+--     departmentId number,
+--     sectionName SECTION.section_name%TYPE
+-- )
+-- RETURN SECTION%rowtype
+--
+-- AS
+--     sectionRow SECTION%rowtype;
+--     groupId number;
+-- BEGIN
+--     INSERT INTO PGROUP(NAME) VALUES ((
+--         (SELECT NAME FROM DEPARTMENT WHERE department_id = departmentId) || '-' || (SELECT YEAR FROM BATCH WHERE batch_id = batchId) || '-' || sectionName )
+--         )
+--     RETURNING group_id INTO groupId;
+--     INSERT INTO SECTION(batch_id, department_id, section_name, SECTION_GROUP_ID) VALUES (batchId, departmentId, sectionName, groupId)
+--     RETURNING batch_id, department_id, section_name, SECTION_GROUP_ID INTO sectionRow.batch_id, sectionRow.department_id, sectionRow.section_name, sectionRow.SECTION_GROUP_ID;
+--     return sectionRow;
+-- end;
+-- /
 
+-- ALTER TABLE BATCH RENAME COLUMN BATCHOFSTYPE TO BATCH_TYPE;
+
+--
+-- create OR REPLACE FUNCTION CREATE_BATCH(
+--     batchName BATCH.name%TYPE,
+--     universityId number,
+--     batchYear number,
+--     sType BATCH.BATCH_TYPE%TYPE
+-- )
+-- return BATCH%rowtype
+-- As
+--     groupId number;
+--     batchRow BATCH%rowtype;
+-- BEGIN
+--     INSERT INTO PGROUP(Name) VALUES (batchName) RETURNING group_id INTO groupId;
+--     INSERT INTO Batch(NAME, UNIVERSITY_ID, BATCH_GROUP_ID, YEAR,BATCH_TYPE) VALUES (batchName, universityId, groupId, batchYear, sType)
+--     returning BATCH_ID, NAME, UNIVERSITY_ID, BATCH_GROUP_ID, YEAR, BATCH_TYPE
+--     INTO  batchRow.batch_id, batchRow.name, batchRow.university_id, batchRow.BATCH_group_id, batchRow.year, batchRow.BATCH_TYPE;
+--     return batchRow;
+-- end;
+-- /
+
+--
+-- CREATE OR REPLACE TRIGGER ADD_TO_GROUPS
+-- AFTER INSERT
+-- ON
+--     STUDENT
+-- FOR EACH ROW
+-- DECLARE
+--     UAGI NUMBER;
+--     USGI NUMBER;
+--     UUGI NUMBER;
+--     UPGI NUMBER;
+--     DAGI NUMBER;
+--     DSGI NUMBER;
+--     DUGI NUMBER;
+--     DPGI NUMBER;
+--     BGI NUMBER;
+--     BDGI NUMBER;
+--     SGI NUMBER;
+--     batchType BATCH.BATCH_TYPE%TYPE;
+--     studentRoleId Number;
+-- --     currStudent STUDENT%rowtype;
+-- BEGIN
+--
+-- --     currStudent := new;
+--     studentRoleId := :new.ROLE_ID;
+-- --     DBMS_OUTPUT.PUT_LINE('here');
+--
+--     SELECT U.ALL_GROUP_ID,  U.STUDENTS_GROUP_ID, U.UGSTUDENTS_GROUP_ID, U.PGSTUDENTS_GROUP_ID,
+--     D.ALL_GROUP_ID, D.STUDENTS_GROUP_ID, D.UGSTUDENTS_GROUP_ID, D.PGSTUDENTS_GROUP_ID, B.BATCH_GROUP_ID,BD.BATCH_DEPT_GROUP_ID,
+--     S.SECTION_GROUP_ID, B.BATCH_TYPE
+--     INTO UAGI, USGI, UUGI, UPGI, DAGI, DSGI, DUGI, DPGI, BGI, BDGI, SGI, batchType
+--     FROM SECTION S
+--         JOIN BATCHDEPT BD ON BD.BATCH_ID = S.BATCH_ID AND BD.DEPARTMENT_ID = S.DEPARTMENT_ID
+--         JOIN BATCH B ON B.BATCH_ID = S.BATCH_ID
+--         JOIN DEPARTMENT D ON S.DEPARTMENT_ID = D.DEPARTMENT_ID
+--         JOIN UNIVERSITY U ON U.UNIVERSITY_ID = D.UNIVERSITY_ID
+--     WHERE S.DEPARTMENT_ID = :new.DEPARTMENT_ID AND S.BATCH_ID = :new.BATCH_ID
+--       AND S.SECTION_NAME = :new.SECTION_NAME ;
+--
+--     INSERT ALL
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (UAGI, studentRoleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (USGI, studentRoleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (DAGI, studentRoleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (DSGI, studentRoleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (BGI, studentRoleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (BDGI, studentRoleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (SGI, studentRoleId, 'mem')
+--
+--     SELECT 1 FROM DUAL;
+--     IF batchType = 'ug' THEN
+--         INSERT ALL
+--             INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (UUGI, studentRoleId, 'mem')
+--             INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (DUGI, studentRoleId, 'mem')
+--
+--         SELECT 1 FROM DUAL;
+--     ELSE
+--         INSERT ALL
+--             INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (UPGI, studentRoleId, 'mem')
+--             INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (DPGI, studentRoleId, 'mem')
+--         SELECT 1 FROM DUAL;
+--
+--     end if;
+--
+-- end;
+
+-- DECLARE
+--     s STUDENT%rowtype
+-- BEGIN
+--
+-- end;
+
+-- DECLARE
+--     s STUDENT%rowtype;
+-- BEGIN
+-- --     p := CREATE_PERSON('new', 'new', 'new', 'new', '1', null, 'new');
+-- --         ar := CREATE_ACADEMIC_ROLE(24382, 'new', 'new', 'mem', 'mem', 'mem', 'mem');
+--     s := CREATE_STUDENT(24382,1, 1,
+--     'new', 'new', 'A', 100, 'mem',
+--     'mem','mem','mem','mem',
+--     'mem','mem','mem','mem' );
+-- end;
+--
+-- -- SELECT * FROM ACADEMIC_ROLE WHERE PERSON_ID = 24382;
+--
+-- -- SELECT * FROM PERSON WHERE EMAIL = 'new'
+
+
+-- ALTER TABLE ACADEMIC_ROLE DROP (UNI_ALL_GROUP_ROLE, UNI_SELF_GROUP_ROLE, DEPT_ALL_GROUP_ROLE, DEPT_SELF_GROUP_ROLE);
+-- ALTER TABLE STUDENT DROP (DEPT_ALL_STUDENTS_ROLE, BATCH_GROUP_ROLE, DEPT_BATCH_GROUP_ROLE, SECTION_GROUP_ROLE, UNI_ALL_STUDENTS_GROUP_ROLE)
+
+-- create OR REPLACE FUNCTION CREATE_ACADEMIC_ROLE(
+--     personId number,
+--     generatedPass ACADEMIC_ROLE.GENERATED_PASS%TYPE,
+--     password_ ACADEMIC_ROLE.PASSWORD%TYPE
+-- )
+-- RETURN ACADEMIC_ROLE%rowtype
+-- AS
+--     academicRole ACADEMIC_ROLE%rowtype;
+-- BEGIN
+--     INSERT INTO
+--         ACADEMIC_ROLE(person_id, generated_pass, PASSWORD)
+--     VALUES (personId, generatedPass, password_)
+--     RETURNING ROLE_ID, person_id, generated_pass, TIMESTAMP
+--     INTO
+--     academicRole.ROLE_ID, academicRole.person_id,
+--         academicRole.generated_pass, academicRole.TIMESTAMP;
+--     return academicRole;
+-- end;
+-- /
+--
+-- create OR REPLACE FUNCTION CREATE_STUDENT(
+--     personId number,
+--     batchId number,
+--     departmentId number,
+--     generatedPass ACADEMIC_ROLE.generated_pass%TYPE,
+--     password_ ACADEMIC_ROLE.GENERATED_PASS%TYPE,
+--     sectionName STUDENT.section_name%TYPE,
+--     sectionRolNo STUDENT.section_roll_no%TYPE
+--
+-- )
+-- RETURN STUDENT%rowtype
+-- AS
+--     studentRow STUDENT%rowtype;
+--     academicRoleRow ACADEMIC_ROLE%rowtype;
+-- BEGIN
+--     academicRoleRow := CREATE_ACADEMIC_ROLE(personId,generatedPass,password_);
+--     INSERT INTO STUDENT(ROLE_ID, BATCH_ID, DEPARTMENT_ID, SECTION_NAME, SECTION_ROLL_NO)
+--     VALUES
+--     (academicRoleRow.ROLE_ID, batchId, departmentId, sectionName, sectionRolNo) returning
+--     role_id, batch_id, department_id, section_name, section_roll_no
+--     INTO
+--     studentRow.ROLE_ID, studentRow.batch_id, studentRow.department_id, studentRow.section_name ,studentRow.section_roll_no;
+--     return studentRow;
+-- end;
+-- /
+--
+-- create OR REPLACE FUNCTION CREATE_TEACHER(
+--     personId number,
+--     generatedPass ACADEMIC_ROLE.GENERATED_PASS%TYPE,
+--     password_ ACADEMIC_ROLE.PASSWORD%TYPE,
+--     rank_ TEACHER.RANK%TYPE,
+--     departmentId number
+-- )
+-- RETURN TEACHER%rowtype
+-- AS
+--     teacherRow TEACHER%rowtype;
+--     academicRoleRow ACADEMIC_ROLE%rowtype;
+-- BEGIN
+--     academicRoleRow := CREATE_ACADEMIC_ROLE(personId, generatedPass,password_);
+--
+--     INSERT INTO TEACHER(ROLE_ID, rank, department_id)
+--     VALUES (academicRoleRow.ROLE_ID, rank_, departmentId)
+--     RETURNING ROLE_ID, rank, department_id
+--     INTO
+--     teacherRow.ROLE_ID, teacherRow.rank, teacherRow.department_id;
+--     return teacherRow;
+-- end;
+-- /
+
+
+--
+
+-- CREATE OR REPLACE TRIGGER ADD_TO_GROUPS_TEACHERS
+-- AFTER INSERT
+-- ON
+--     TEACHER
+-- FOR EACH ROW
+-- DECLARE
+--     UAGI NUMBER;
+--     UTGI NUMBER;
+--     DAGI NUMBER;
+--     DTGI NUMBER;
+--     roleId Number;
+-- BEGIN
+--     roleId := :new.ROLE_ID;
+--     SELECT U.ALL_GROUP_ID, U.TEACHERS_GROUP_ID, D.ALL_GROUP_ID, D.TEACHERS_GROUP_ID
+--     INTO UAGI, UTGI, DAGI, DTGI
+--     FROM DEPARTMENT D JOIN UNIVERSITY U ON D.UNIVERSITY_ID = U.UNIVERSITY_ID WHERE D.DEPARTMENT_ID = :new.DEPARTMENT_ID;
+--     INSERT ALL
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (UAGI,roleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (UTGI,roleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (DAGI,roleId, 'mem')
+--         INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) VALUES (DTGI,roleId, 'mem')
+--     SELECT 1 FROM DUAL;
+--
+-- end;
+
+--
+--
+-- DECLARE
+--     s TEACHER%rowtype;
+-- BEGIN
+-- --     p := CREATE_PERSON('new', 'new', 'new', 'new', '1', null, 'new');
+-- --         ar := CREATE_ACADEMIC_ROLE(24382, 'new', 'new', 'mem', 'mem', 'mem', 'mem');
+--     s := CREATE_TEACHER(24382,'new', 'new',
+--     'new', 1);
+-- end;
+
+
+-- DELETE FROM STUDENT;
+-- DELETE FROM TEACHER;
+-- DELETE FROM POST;
+-- DELETE FROM COMMENT_;
+-- DELETE FROM CONTENT;
+-- DELETE FROM GROUP_MEMBER;
+
+
+-- ALTER TABLE CONTENT ADD CONSTRAINT FROM_MEMBER FOREIGN KEY (GROUP_ID, ROLE_ID) references GROUP_MEMBER;

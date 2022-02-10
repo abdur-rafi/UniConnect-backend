@@ -102,7 +102,7 @@ router.route('/')
                 B.NAME as BATCH_NAME,
                 B.YEAR,
                 B.BATCH_ID,
-                B.BATCHOFSTYPE,
+                B.BATCH_TYPE,
                 (
                     SELECT 
                         COUNT(SECTION_NAME) 
@@ -131,9 +131,9 @@ router.route('/')
             WHERE
                 D.UNIVERSITY_ID = (${uniQuery})
             GROUP BY
-                    D.DEPARTMENT_ID,D.DEPT_CODE, D.NAME, B.YEAR, B.BATCH_ID, B.BATCHOFSTYPE, B.NAME
+                    D.DEPARTMENT_ID,D.DEPT_CODE, D.NAME, B.YEAR, B.BATCH_ID, B.BATCH_TYPE, B.NAME
             ORDER BY
-                D.DEPT_CODE, B.BATCHOFSTYPE, B.YEAR
+                D.DEPT_CODE, B.BATCH_TYPE, B.YEAR
         `
         let result = await connection.execute(
             query,

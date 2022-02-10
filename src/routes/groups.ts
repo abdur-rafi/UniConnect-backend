@@ -5,142 +5,20 @@ import { closeConnection, extractTableAndId, invalidForm, notAuthenticated, notF
 
 let router = express.Router()
 
-function selectAutoCreatedGroupsQuery(tableName : 'Teacher' | 'Student', type : string ) : string{
-    if(tableName == 'Teacher'){
-        return `
-        SELECT
-            dgt.GROUP_ID as DEPARTMENT_TEACHERS_GROUP_ID,
-            dga.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
-            uga.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID,
-            ugt.GROUP_ID as UNIVERSITY_TEACHERS_GROUP_ID
-
-        FROM TEACHER T
-        JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
-        JOIN UNIVERSITY U on D.UNIVERSITY_ID = U.UNIVERSITY_ID
-        LEFT OUTER JOIN PGROUP dgt ON dgt.GROUP_ID = D.TEACHERS_GROUP_ID
-        LEFT OUTER JOIN PGROUP dga On dga.GROUP_ID = D.ALL_GROUP_ID
-        LEFT OUTER JOIN PGROUP ugt ON ugt.GROUP_ID = U.TEACHERS_GROUP_ID
-        LEFT OUTER JOIN PGROUP uga ON uga.GROUP_ID = U.ALL_GROUP_ID
-        WHERE T.ROLE_ID = :id
-        `
-    }
-    else{
-        return `
-        SELECT  
-                gs.GROUP_ID   as SECTION_GROUP_ID,
-                gbd.GROUP_ID  as BATCH_DEPT_GROUP_ID,
-                gb.GROUP_ID   as BATCH_GROUP_ID,
-                gds.GROUP_ID  as DEPARTMENT_${type}_STUDENTS_GROUP_ID,
-                gdsa.GROUP_ID as DEPARTMENT_ALL_STUDENTS_GROUP_ID,
-                gdst.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
-                gus.GROUP_ID  as UNIVERSITY_${type}_STUDENTS_GROUP_ID,
-                gusa.GROUP_ID as UNIVERSITY_ALL_STUDENTS_GROUP_ID,
-                gust.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID
-
-        FROM STUDENT S
-                LEFT OUTER JOIN
-            Section SC
-            USING (batch_id, department_id, section_name)
-                LEFT OUTER JOIN BATCHDEPT BD
-                                USING (BATCH_ID, DEPARTMENT_ID)
-                LEFT OUTER JOIN
-            DEPARTMENT D
-            USING (DEPARTMENT_ID)
-                LEFT OUTER JOIN
-            UNIVERSITY U
-            ON
-                D.UNIVERSITY_ID = U.UNIVERSITY_ID
-                LEFT OUTER JOIN BATCH B
-                                USING (BATCH_ID)
-                LEFT OUTER JOIN PGROUP gS
-                                ON gS.GROUP_ID = SC.GROUP_ID
-
-                LEFT OUTER JOIN PGROUP gbd
-                                ON
-                                    gbd.GROUP_ID = BD.GROUP_ID
-
-                LEFT OUTER JOIN PGROUP gb
-                                ON gb.group_id = B.GROUP_ID
-                LEFT OUTER JOIN PGROUP gds
-                                ON gds.group_id = D.${type}Students_group_id
-                LEFT OUTER JOIN PGROUP gdsa
-                                ON gdsa.group_id = D.STUDENTS_GROUP_ID
-                LEFT OUTER JOIN PGROUP gdst
-                                ON gdst.group_id = D.all_group_id
-                LEFT OUTER JOIN PGROUP gusa
-                                ON gusa.group_id = U.students_group_id
-                LEFT OUTER JOIN PGROUP gust
-                                ON gust.group_id = U.all_group_id
-                LEFT OUTER JOIN PGROUP gus
-                                ON gus.group_id = U.${type}Students_group_id
-        WHERE S.ROLE_ID = :id
-`
-    }
-}
-
-function selectStudentTypeQuery() : string{
-    return `
-        SELECT BATCHOFSTYPE as STYPE FROM STUDENT JOIN BATCH USING(BATCH_ID) WHERE ROLE_ID = :id
-    `
-}
 
 async function checkIfInsideGroup(
     connection : oracledb.Connection, 
     groupId : number, 
     roleId : number, 
-    role : 'Teacher' | 'Student',
     next : NextFunction, 
     res : Response
 ) : Promise<boolean>{
     try{
         connection = await oracledb.getConnection();
-        let type : string = 'ug';
-        
-        if(role == 'Student'){
-            let typeR = await connection.execute<{
-                STYPE : string
-            }>(
-                selectStudentTypeQuery(),
-                {
-                    id : roleId
-                },
-                {
-                    outFormat : oracledb.OUT_FORMAT_OBJECT
-                }
-            )
-            if(!typeR.rows || typeR.rows.length == 0){
-                serverError(next, res);
-                return false;
-            }
-            type = typeR.rows[0].STYPE;    
-            console.log(typeR);
-        }
-        console.log(type);
-        
-        let groups = await connection.execute<[number]>(
-            selectAutoCreatedGroupsQuery(role, type),
-            {id : roleId},
-        )
-        if(!groups.rows || groups.rows.length == 0){
-            serverError(next, res);
-            return false;
-        }
-        if(groups.rows[0].includes(groupId)) return true;
-        let userCreatedQuery = `
-            SELECT GROUP_ID FROM GROUP_MEMBER WHERE ROLE_ID = :id
-        `
-        let userCreatedGroups = await connection.execute<[number]>(
-            userCreatedQuery,
-            {
-                id : roleId
-            }
-        );
-        if(!userCreatedGroups.rows || userCreatedGroups.rows.length == 0){
-            serverError(next, res);
-            return false;
-        }
-        return userCreatedGroups.rows.some(r => r[0] == groupId)
-
+        let query = `SELECT COUNT(*) FROM GROUP_MEMBER WHERE GROUP_ID = :gId AND ROLE_ID = :rId`;
+        let result = await connection.execute(query, {gId : groupId, rId : roleId});
+        if(!result.rows) return false;
+        return result.rows.length !== 0;
         // console.log(groups);
     } catch(error){
         serverError(next, res);
@@ -149,8 +27,73 @@ async function checkIfInsideGroup(
     
 }
 
+// ger posts of  groups
+router.route('/all/posts')
+.get(async (req, res, next) =>{
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return;
+    let connection;
+    if(ret.tableName == 'Management'){
+        return unAuthorized(next, res);
+    }
+    try{
+        oracledb.fetchAsString = [oracledb.CLOB]
 
-// get info of custom
+        connection = await oracledb.getConnection();
+        let query = `
+                        
+            SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
+            COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY
+            FROM
+            (
+            SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
+                COUNT(UNIQUE VU.ROLE_ID) as UPVOTE_COUNT,
+                COUNT(UNIQUE  VD.ROLE_ID) as DOWNVOTE_COUNT
+            FROM GROUP_MEMBER GM
+            JOIN PGROUP G on GM.GROUP_ID = G.GROUP_ID
+            JOIN CONTENT C ON C.GROUP_ID = G.GROUP_ID
+            JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
+            LEFT OUTER JOIN COMMENT_ CMT ON CMT.COMMENT_OF = P.CONTENT_ID
+            LEFT OUTER JOIN VOTE VU ON VU.CONTENT_ID = C.CONTENT_ID AND VU.DOWN = 'N'
+            LEFT OUTER JOIN VOTE VD ON VD.CONTENT_ID = C.CONTENT_ID AND VD.DOWN = 'Y'
+
+            WHERE GM.ROLE_ID = :rId
+            GROUP BY C.CONTENT_ID
+            FETCH NEXT 25 ROW ONLY
+            ) CONTENT_IDS
+            JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
+            JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
+            JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
+            JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
+            JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+            ORDER BY C.POSTED_AT
+        `
+        
+
+        let result = await connection.execute(
+            query,
+            {rId : ret.id},
+            {outFormat : oracledb.OUT_FORMAT_OBJECT}
+        );
+        if(!result || !result.rows || result.rows.length == 0){
+            return serverError(next, res);
+        }
+        res.status(200).json(result.rows);
+    
+
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+    
+})
+
+
+// get info of custom 
 router.route('/custom')
 .get(async (req, res, next) =>{
     let ret = extractTableAndId(next, req, res);
@@ -169,7 +112,7 @@ router.route('/custom')
             JOIN GROUP_MEMBER GM2 ON GM2.GROUP_ID = G.GROUP_ID
             LEFT OUTER JOIN CONTENT C2 on G.GROUP_ID = C2.GROUP_ID
             LEFT OUTER JOIN POST P on C2.CONTENT_ID = P.CONTENT_ID
-            WHERE GM1.ROLE_ID = :id
+            WHERE GM1.ROLE_ID = :id AND G.USER_CREATED = 'Y'
             GROUP BY GM1.ROLE_ID, G.GROUP_ID, G.NAME, GM1.MEMBER_ROLE
         `;
         let result = await connection.execute(query, {
@@ -209,7 +152,7 @@ router.route('/custom')
         DECLARE 
         t PGROUP%ROWTYPE;
         BEGIN
-            t := CREATE_GROUP(:groupName);
+            t := CREATE_GROUP(:groupName, 'Y');
             INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE) 
             VALUES (t.GROUP_ID,:roleId, :mRole);
             :gr := t;
@@ -241,11 +184,7 @@ router.route('/custom')
     }
 })
 
-// ger posts of custom groups
-router.route('/custom/posts')
-.get(async (req, res, next) =>{
 
-})
 // add members to custom group
 router.route('/custom/:groupId/add')
 .post(async (req, res, next) =>{
@@ -299,212 +238,19 @@ router.route('/defaults')
     }
     try{
         connection = await oracledb.getConnection();
-        let query : string;
-        if(ret.tableName == 'Student'){
-            
-            let type = 'pg';
-            let result = await connection.execute<{
-                STYPE : string
-            }>(
-                selectStudentTypeQuery(),
-                {id : ret.id},
-                {outFormat : oracledb.OUT_FORMAT_OBJECT}
-            );
-            if(!result || !result.rows || result.rows.length == 0){
-                return notAuthenticated(next, res);
-            }
-            type = result.rows[0].STYPE;
-            console.log(type);
-            query = `
+        let query = `
+                
+            SELECT G.GROUP_ID, G.NAME, COUNT(GM2.ROLE_ID) as GROUP_MEMBERS_COUNT,GM1.MEMBER_ROLE,
+            COUNT(P.CONTENT_ID) as GROUP_POSTS_COUNT
+            FROM GROUP_MEMBER GM1
+            JOIN PGROUP G on GM1.GROUP_ID = G.GROUP_ID
+            JOIN GROUP_MEMBER GM2 ON GM2.GROUP_ID = G.GROUP_ID
+            LEFT OUTER JOIN CONTENT C2 on G.GROUP_ID = C2.GROUP_ID
+            LEFT OUTER JOIN POST P on C2.CONTENT_ID = P.CONTENT_ID
+            WHERE GM1.ROLE_ID = :id AND G.USER_CREATED = 'N'
+            GROUP BY GM1.ROLE_ID, G.GROUP_ID, G.NAME, GM1.MEMBER_ROLE
+        `
         
-                    
-
-                    SELECT gs.GROUP_ID   as SECTION_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gs.GROUP_ID) as SECTION_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gs.GROUP_ID) as SECTION_GROUP_POST_COUNT,
-                    COUNT_INFO.SECTION_STUDENTS_COUNT as SECTION_GROUP_MEMBER_COUNT,
-            
-                    gbd.GROUP_ID  as BATCH_DEPT_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gbd.GROUP_ID) as BATCH_DEPT_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gbd.GROUP_ID) as BATCH_DEPT_GROUP_POST_COUNT,
-                    COUNT_INFO.BATCH_DEPT_STUDENTS_COUNT as BATCH_DEPT_GROUP_MEMBER_COUNT,
-            
-                    gb.GROUP_ID   as BATCH_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gb.GROUP_ID) as BATCH_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gb.GROUP_ID) as BATCH_GROUP_POST_COUNT,
-                    COUNT_INFO.BATCH_STUDENTS_COUNT as BATCH_GROUP_MEMBER_COUNT,
-            
-                    gds.GROUP_ID  as DEPARTMENT_${type}_STUDENTS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gds.GROUP_ID) as DEPARTMENT_${type}_STUDENTS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gds.GROUP_ID) as DEPARTMENT_${type}_STUDENTS_GROUP_POST_COUNT,
-                    COUNT_INFO.DEPARTMENT_${type}_STUDENTS_COUNT as DEPARTMENT_${type}_STUDENTS_GROUP_MEMBER_COUNT,
-            
-                    gdsa.GROUP_ID as DEPARTMENT_ALL_STUDENTS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gdsa.GROUP_ID) as DEPARTMENT_ALL_STUDENTS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gdsa.GROUP_ID) as DEPARTMENT_ALL_STUDENTS_GROUP_POST_COUNT,
-                    COUNT_INFO.DEPARTMENT_ALL_STUDENTS_COUNT as DEPARTMENT_ALL_STUDENTS_GROUP_MEMBER_COUNT,
-            
-                    gdst.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gdst.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gdst.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_POST_COUNT,
-                    COUNT_INFO.DEPARTMENT_ALL_STUDENTS_COUNT + COUNT_INFO.DEPARTMENT_TEACHERS_COUNT as DEPARTMENT_STUDENTS_TEACHERS_MEMBER_POST_COUNT,
-            
-                    gus.GROUP_ID  as UNIVERSITY_${type}_STUDENTS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gus.GROUP_ID) as UNIVERSITY_${type}_STUDENTS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gus.GROUP_ID) as UNIVERSITY_${type}_STUDENTS_GROUP_POST_COUNT,
-                    COUNT_INFO.UNIVERSITY_${type}_STUDENTS_COUNT as UNIVERSITY_${type}_STUDENTS_GROUP_MEMBER_COUNT,
-            
-                    gusa.GROUP_ID as UNIVERSITY_ALL_STUDENTS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gusa.GROUP_ID) as UNIVERSITY_ALL_STUDENTS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gusa.GROUP_ID) as UNIVERSITY_ALL_STUDENTS_GROUP_POST_COUNT,
-                    COUNT_INFO.UNIVERSITY_STUDENTS_COUNT as UNIVERSITY_ALL_STUDENTS_GROUP_MEMBER_COUNT,
-            
-                    gust.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_ID = gust.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on POST.CONTENT_ID = C2.CONTENT_ID WHERE C2.GROUP_ID = gust.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_POST_COUNT,
-                    COUNT_INFO.UNIVERSITY_STUDENTS_COUNT + COUNT_INFO.UNIVERSITY_TEACHERS_COUNT as UNIVERSITY_STUDENTS_TEACHERS_GROUP_MEMBER_COUNT
-            
-                    FROM STUDENT S
-                    JOIN (SELECT S2.DEPARTMENT_ID,
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                            WHERE S.SECTION_NAME = S.SECTION_NAME
-                            AND S.BATCH_ID = S.BATCH_ID
-                            AND S.DEPARTMENT_ID = S.DEPARTMENT_ID
-                            )             as SECTION_STUDENTS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                            WHERE S.BATCH_ID = S2.BATCH_ID
-                            AND S.DEPARTMENT_ID = S2.DEPARTMENT_ID
-                            )             as BATCH_DEPT_STUDENTS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                            WHERE S.BATCH_ID = S2.BATCH_ID
-                            )             as BATCH_STUDENTS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                            WHERE S.DEPARTMENT_ID = S2.DEPARTMENT_ID
-                            )             as DEPARTMENT_ALL_STUDENTS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM TEACHER T
-                            WHERE T.DEPARTMENT_ID = S2.DEPARTMENT_ID
-                            )             as DEPARTMENT_TEACHERS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM TEACHER T
-                                    JOIN DEPARTMENT D3 on T.DEPARTMENT_ID = D3.DEPARTMENT_ID
-                            WHERE D3.UNIVERSITY_ID = D2.UNIVERSITY_ID
-                            )             as UNIVERSITY_TEACHERS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                                    JOIN DEPARTMENT D3 on S.DEPARTMENT_ID = D3.DEPARTMENT_ID
-                            WHERE D3.UNIVERSITY_ID = D2.UNIVERSITY_ID
-                            )             as UNIVERSITY_STUDENTS_COUNT,
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                                    JOIN BATCH B3 on S.BATCH_ID = B3.BATCH_ID
-                            WHERE B3.UNIVERSITY_ID = D2.UNIVERSITY_ID
-                            AND B3.BATCHOFSTYPE = B2.BATCHOFSTYPE
-                            )             as UNIVERSITY_${type}_STUDENTS_COUNT,
-
-                            (SELECT COUNT(*)
-                            FROM STUDENT S
-                                    JOIN BATCH B3 on S.BATCH_ID = B3.BATCH_ID
-                                    JOIN DEPARTMENT D4 on S.DEPARTMENT_ID = D4.DEPARTMENT_ID
-                            WHERE D4.DEPARTMENT_ID = S2.DEPARTMENT_ID
-                            AND B3.BATCHOFSTYPE = B2.BATCHOFSTYPE
-                            )             as DEPARTMENT_${type}_STUDENTS_COUNT
-
-
-                            FROM STUDENT S2
-                                    JOIN DEPARTMENT D2 on S2.DEPARTMENT_ID = D2.DEPARTMENT_ID
-                                    JOIN BATCH B2 ON B2.BATCH_ID = S2.BATCH_ID
-                            WHERE S2.ROLE_ID = :id
-                    ) COUNT_INFO
-                    ON COUNT_INFO.DEPARTMENT_ID = S.DEPARTMENT_ID
-                    LEFT OUTER JOIN
-                    Section SC
-                        ON S.BATCH_ID = SC.BATCH_ID AND S.DEPARTMENT_ID = Sc.DEPARTMENT_ID AND S.SECTION_NAME = Sc.SECTION_NAME
-                    LEFT OUTER JOIN BATCHDEPT BD
-                        ON S.DEPARTMENT_ID = Bd.DEPARTMENT_ID AND S.BATCH_ID = Bd.BATCH_ID
-                    LEFT OUTER JOIN
-                    DEPARTMENT D
-                    ON D.DEPARTMENT_ID = S.DEPARTMENT_ID
-                    LEFT OUTER JOIN
-                    UNIVERSITY U
-                    ON
-                    D.UNIVERSITY_ID = U.UNIVERSITY_ID
-                    LEFT OUTER JOIN BATCH B
-                                    ON B.BATCH_ID = S.BATCH_ID
-                    LEFT OUTER JOIN PGROUP gS
-                                    ON gS.GROUP_ID = SC.GROUP_ID
-
-                    LEFT OUTER JOIN PGROUP gbd
-                                    ON
-                                        gbd.GROUP_ID = BD.GROUP_ID
-
-                    LEFT OUTER JOIN PGROUP gb
-                                    ON gb.group_id = B.GROUP_ID
-                    LEFT OUTER JOIN PGROUP gds
-                                    ON gds.group_id = D.${type}Students_group_id
-                    LEFT OUTER JOIN PGROUP gdsa
-                                    ON gdsa.group_id = D.STUDENTS_GROUP_ID
-                    LEFT OUTER JOIN PGROUP gdst
-                                    ON gdst.group_id = D.all_group_id
-                    LEFT OUTER JOIN PGROUP gusa
-                                    ON gusa.group_id = U.students_group_id
-                    LEFT OUTER JOIN PGROUP gust
-                                    ON gust.group_id = U.all_group_id
-                    LEFT OUTER JOIN PGROUP gus
-                                    ON gus.group_id = U.${type}Students_group_id
-                    WHERE S.ROLE_ID = :id
-            `
-        }
-        else{
-            query = `
-                
-                    SELECT dgt.GROUP_ID as DEPARTMENT_TEACHERS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = dgt.GROUP_ID) as DEPARTMENT_TEACHERS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = dgt.GROUP_ID) as DEPARTMENT_TEACHERS_GROUP_POSTS_COUNT,
-                    COUNT_INFO.DEPARTMENT_TEACHER_COUNT as DEPARTMENT_TEACHERS_GROUP_MEMBERS_COUNT,
-
-                    dga.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = dga.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = dga.GROUP_ID) as DEPARTMENT_STUDENTS_TEACHERS_GROUP_POSTS_COUNT,
-                    COUNT_INFO.DEPARTMENT_TEACHER_COUNT + COUNT_INFO.DEPARTMENT_STUDENT_COUNT as DEPARTMENT_STUDENTS_TEACHERS_GROUP_MEMBERS_COUNT,
-
-
-                    uga.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = uga.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = uga.GROUP_ID) as UNIVERSITY_STUDENTS_TEACHERS_GROUP_POSTS_COUNT,
-                    COUNT_INFO.UNIVERSITY_STUDENT_COUNT + COUNT_INFO.UNIVERSITY_TEACHER_COUNT as UNIVERSITY_STUDENTS_TEACHERS_GROUP_MEMBERS_COUNT,
-
-                    ugt.GROUP_ID as UNIVERSITY_TEACHERS_GROUP_ID,
-                    (SELECT NAME FROM PGROUP WHERE GROUP_Id = ugt.GROUP_ID) as UNIVERSITY_TEACHERS_GROUP_NAME,
-                    (SELECT COUNT(*) FROM POST JOIN CONTENT C2 on C2.CONTENT_ID = POST.CONTENT_ID WHERE C2.GROUP_ID = ugt.GROUP_ID) as UNIVERSITY_TEACHERS_GROUP_POSTS_COUNT,
-                    COUNT_INFO.UNIVERSITY_TEACHER_COUNT as UNIVERSITY_TEACHERS_GROUP_MEMBERS_COUNT
-
-
-                    FROM TEACHER T
-                    JOIN (SELECT
-                        D3.DEPARTMENT_ID,
-                        (SELECT COUNT(*) FROM TEACHER T2 WHERE T2.DEPARTMENT_ID = D3.DEPARTMENT_ID) as DEPARTMENT_TEACHER_COUNT,
-                        (SELECT COUNT(*) FROM STUDENT S2 WHERE S2.DEPARTMENT_ID = D3.DEPARTMENT_ID) as DEPARTMENT_STUDENT_COUNT,
-                        (SELECT COUNT(*) FROM TEACHER T2 WHERE T2.DEPARTMENT_ID = UNIVERSITY_ID) as UNIVERSITY_TEACHER_COUNT,
-                        (SELECT COUNT(*) FROM STUDENT S2 WHERE S2.DEPARTMENT_ID = UNIVERSITY_ID) as UNIVERSITY_STUDENT_COUNT
-                        FROM TEACHER T2 JOIN DEPARTMENT D3 on
-                        T2.DEPARTMENT_ID = D3.DEPARTMENT_ID WHERE T2.ROLE_ID = :id
-                    )
-                    COUNT_INFO
-                    ON T.DEPARTMENT_ID = COUNT_INFO.DEPARTMENT_ID
-                    JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
-                    JOIN UNIVERSITY U on D.UNIVERSITY_ID = U.UNIVERSITY_ID
-                    LEFT OUTER JOIN PGROUP dgt ON dgt.GROUP_ID = D.TEACHERS_GROUP_ID
-                    LEFT OUTER JOIN PGROUP dga On dga.GROUP_ID = D.ALL_GROUP_ID
-                    LEFT OUTER JOIN PGROUP ugt ON ugt.GROUP_ID = U.TEACHERS_GROUP_ID
-                    LEFT OUTER JOIN PGROUP uga ON uga.GROUP_ID = U.ALL_GROUP_ID
-                    WHERE T.ROLE_ID =  :id
-            `
-        }
 
         let result = await connection.execute(
             query,
@@ -526,285 +272,6 @@ router.route('/defaults')
         closeConnection(connection);
     }
 })
-
-// get posts of default groups
-router.route('/defaults/posts')
-.get(async (req, res, next)=>{
-
-    let ret = extractTableAndId(next, req, res);
-    if(!ret) return;
-    let connection;
-    if(ret.tableName == 'Management'){
-        return unAuthorized(next, res);
-    }
-    try{
-        oracledb.fetchAsString = [oracledb.CLOB]
-        connection = await oracledb.getConnection();
-        let query;
-        if(ret.tableName == 'Student'){
-            let type = 'pg';
-            let result = await connection.execute<{
-                STYPE : string
-            }>(
-                selectStudentTypeQuery(),
-                {id : ret.id},
-                {outFormat : oracledb.OUT_FORMAT_OBJECT}
-            );
-            if(!result || !result.rows || result.rows.length == 0){
-                return notAuthenticated(next, res);
-            }
-            type = result.rows[0].STYPE;
-            console.log(type);
-            query = 
-            `
-                            
-                WITH GROUPS as
-                (SELECT gs.name       as SECTION_GROUP_NAME,
-                        gs.GROUP_ID   as SECTION_GROUP_ID,
-                        gbd.name      as BATCH_DEPT_GROUP_NAME,
-                        gbd.GROUP_ID  as BATCH_DEPT_GROUP_ID,
-                        gb.name       as BATCH_GROUP_NAME,
-                        gb.GROUP_ID   as BATCH_GROUP_ID,
-                        gds.name      as DEPARTMENT_${type}_STUDENTS_GROUP_NAME,
-                        gds.GROUP_ID  as DEPARTMENT_${type}_STUDENTS_GROUP_ID,
-                        gdsa.name     as DEPARTMENT_ALL_STUDENTS_GROUP_NAME,
-                        gdsa.GROUP_ID as DEPARTMENT_ALL_STUDENTS_GROUP_ID,
-
-                        gdst.name     as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
-                        gdst.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
-
-                        gus.name      as UNIVERSITY_${type}_STUDENTS_GROUP_NAME,
-                        gus.GROUP_ID  as UNIVERSITY_${type}_STUDENTS_GROUP_ID,
-
-                        gusa.name     as UNIVERSITY_ALL_STUDENTS_GROUP_NAME,
-                        gusa.GROUP_ID as UNIVERSITY_ALL_STUDENTS_GROUP_ID,
-
-                        gust.name     as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
-                        gust.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID
-
-                FROM STUDENT S
-                        LEFT OUTER JOIN
-                    Section SC
-                    USING (batch_id, department_id, section_name)
-                        LEFT OUTER JOIN BATCHDEPT BD
-                                        USING (BATCH_ID, DEPARTMENT_ID)
-                        LEFT OUTER JOIN
-                    DEPARTMENT D
-                    USING (DEPARTMENT_ID)
-                        LEFT OUTER JOIN
-                    UNIVERSITY U
-                    ON
-                        D.UNIVERSITY_ID = U.UNIVERSITY_ID
-                        LEFT OUTER JOIN BATCH B
-                                        USING (BATCH_ID)
-                        LEFT OUTER JOIN PGROUP gS
-                                        ON gS.GROUP_ID = SC.GROUP_ID
-
-                        LEFT OUTER JOIN PGROUP gbd
-                                        ON
-                                            gbd.GROUP_ID = BD.GROUP_ID
-
-                        LEFT OUTER JOIN PGROUP gb
-                                        ON gb.group_id = B.GROUP_ID
-                        LEFT OUTER JOIN PGROUP gds
-                                        ON gds.group_id = D.${type}Students_group_id
-                        LEFT OUTER JOIN PGROUP gdsa
-                                        ON gdsa.group_id = D.STUDENTS_GROUP_ID
-                        LEFT OUTER JOIN PGROUP gdst
-                                        ON gdst.group_id = D.all_group_id
-                        LEFT OUTER JOIN PGROUP gusa
-                                        ON gusa.group_id = U.students_group_id
-                        LEFT OUTER JOIN PGROUP gust
-                                        ON gust.group_id = U.all_group_id
-                        LEFT OUTER JOIN PGROUP gus
-                                        ON gus.group_id = U.${type}Students_group_id
-                WHERE S.ROLE_ID = :id
-                )
-
-                SELECT C1.CONTENT_ID, C1.GROUP_ID, C1.TEXT, P.TITLE, C1.POSTED_AT,GR.NAME as GROUP_NAME, PER.FIRST_NAME || ' ' || PER.LAST_NAME as USERNAME,
-                COMMENT_COUNT, UPVOTE, DOWNVOTE
-                FROM
-                (
-                SELECT T.CONTENT_ID, COUNT(COM1.CONTENT_ID) as COMMENT_COUNT, COUNT(V1.CONTENT_ID) as UPVOTE, COUNT(V2.CONTENT_ID) as DOWNVOTE
-                FROM
-                (
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.SECTION_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.BATCH_DEPT_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.BATCH_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.DEPARTMENT_${type}_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.DEPARTMENT_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.UNIVERSITY_${type}_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.UNIVERSITY_ALL_STUDENTS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                UNION
-                SELECT A.CONTENT_ID
-                FROM GROUPS G
-                        OUTER APPLY(SELECT P.CONTENT_ID
-                                    FROM POST P
-                                            JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                    WHERE C.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                ) T
-
-                LEFT OUTER JOIN COMMENT_ COM1 ON COM1.COMMENT_OF = T.CONTENT_ID
-                LEFT OUTER JOIN VOTE V1 ON V1.CONTENT_ID = T.CONTENT_ID AND V1.DOWN = 'N'
-                LEFT OUTER JOIN VOTE V2 ON V2.CONTENT_ID = T.CONTENT_ID AND V2.DOWN != 'N'
-                GROUP BY T.CONTENT_ID
-                ) CONTENT_IDS
-
-                JOIN CONTENT C1 ON C1.CONTENT_ID = CONTENT_IDS.CONTENT_ID
-                JOIN POST P ON P.CONTENT_ID = C1.CONTENT_ID
-                JOIN PGROUP GR on C1.GROUP_ID = GR.GROUP_ID
-                JOIN ACADEMIC_ROLE AR on C1.ROLE_ID = AR.ROLE_ID
-                JOIN PERSON PER on AR.PERSON_ID = PER.PERSON_ID
-                ORDER BY C1.POSTED_AT
-
-            `
-                
-        }
-        else{
-            query = `
-                    WITH GROUPS AS (
-                        SELECT dgt.GROUP_ID as DEPARTMENT_TEACHERS_GROUP_ID,
-                            dga.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID,
-                            uga.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID,
-                            ugt.GROUP_ID as UNIVERSITY_TEACHERS_GROUP_ID,
-                            dgt.GROUP_ID as DEPARTMENT_TEACHERS_GROUP_NAME,
-                            dga.GROUP_ID as DEPARTMENT_STUDENTS_TEACHERS_GROUP_NAME,
-                            uga.GROUP_ID as UNIVERSITY_STUDENTS_TEACHERS_GROUP_NAME,
-                            ugt.GROUP_ID as UNIVERSITY_TEACHERS_GROUP_NAME
-
-                        FROM TEACHER T
-                                JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
-                                JOIN UNIVERSITY U on D.UNIVERSITY_ID = U.UNIVERSITY_ID
-                                LEFT OUTER JOIN PGROUP dgt ON dgt.GROUP_ID = D.TEACHERS_GROUP_ID
-                                LEFT OUTER JOIN PGROUP dga On dga.GROUP_ID = D.ALL_GROUP_ID
-                                LEFT OUTER JOIN PGROUP ugt ON ugt.GROUP_ID = U.TEACHERS_GROUP_ID
-                                LEFT OUTER JOIN PGROUP uga ON uga.GROUP_ID = U.ALL_GROUP_ID
-                        WHERE T.ROLE_ID = :id
-                    )
-
-                    SELECT C1.CONTENT_ID, C1.GROUP_ID, C1.TEXT, P.TITLE, C1.POSTED_AT,GR.NAME as GROUP_NAME, PER.FIRST_NAME || ' ' || PER.LAST_NAME as USERNAME,
-                            COMMENT_COUNT, UPVOTE, DOWNVOTE
-
-                    FROM
-                    (
-
-                    SELECT T.CONTENT_ID, COUNT(COM1.CONTENT_ID) as COMMENT_COUNT, COUNT(V1.CONTENT_ID) as UPVOTE, COUNT(V2.CONTENT_ID) as DOWNVOTE
-                    FROM
-                        (
-                            SELECT A.CONTENT_ID
-                            FROM GROUPS G
-                                    OUTER APPLY(SELECT P.CONTENT_ID
-                                                FROM POST P
-                                                        JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                                WHERE C.GROUP_ID = G.DEPARTMENT_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                            UNION
-                            SELECT A.CONTENT_ID
-                            FROM GROUPS G
-                                    OUTER APPLY(SELECT P.CONTENT_ID
-                                                FROM POST P
-                                                        JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                                WHERE C.GROUP_ID = G.DEPARTMENT_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                            UNION
-
-                            SELECT A.CONTENT_ID
-                            FROM GROUPS G
-                                    OUTER APPLY(SELECT P.CONTENT_ID
-                                                FROM POST P
-                                                        JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                                WHERE C.GROUP_ID = G.UNIVERSITY_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                            UNION
-
-                            SELECT A.CONTENT_ID
-                            FROM GROUPS G
-                                    OUTER APPLY(SELECT P.CONTENT_ID
-                                                FROM POST P
-                                                        JOIN CONTENT C ON C.CONTENT_ID = P.CONTENT_ID
-                                                WHERE C.GROUP_ID = G.UNIVERSITY_STUDENTS_TEACHERS_GROUP_ID FETCH NEXT 5 ROWS ONLY) A
-                        ) T
-
-                        LEFT OUTER JOIN COMMENT_ COM1 ON COM1.COMMENT_OF = T.CONTENT_ID
-                        LEFT OUTER JOIN VOTE V1 ON V1.CONTENT_ID = T.CONTENT_ID AND V1.DOWN = 'N'
-                        LEFT OUTER JOIN VOTE V2 ON V2.CONTENT_ID = T.CONTENT_ID AND V2.DOWN != 'N'
-                        GROUP BY T.CONTENT_ID
-                        ) CONTENT_IDS
-
-                    JOIN CONTENT C1 ON C1.CONTENT_ID = CONTENT_IDS.CONTENT_ID
-                    JOIN POST P ON P.CONTENT_ID = C1.CONTENT_ID
-                    JOIN PGROUP GR on C1.GROUP_ID = GR.GROUP_ID
-                    JOIN ACADEMIC_ROLE AR on C1.ROLE_ID = AR.ROLE_ID
-                    JOIN PERSON PER on AR.PERSON_ID = PER.PERSON_ID
-                    ORDER BY C1.POSTED_AT
-
-            `
-        }
-        let result = await connection.execute(
-            query,
-            {id : ret.id},
-            {outFormat : oracledb.OUT_FORMAT_OBJECT}
-        );
-        if(!result || !result.rows || result.rows.length == 0){
-            return serverError(next, res);
-        }
-        res.status(200).json(result.rows);
-    }
-    catch(error){
-        console.log(error);
-        return serverError(next, res);
-    }
-    finally{
-        closeConnection(connection);
-    }
-    
-})
-
 
 
 // get posts of a groups with constraints
@@ -847,42 +314,56 @@ router.route('/posts/:groupId/:from/:direction/:count/:order')
             return setLocals(400, 'invalid from parameter', next, res);
         }
         
-        let r = await checkIfInsideGroup(connection, groupId, ret.id, ret.tableName, next, res);
-        if(r){
-            oracledb.fetchAsString = [oracledb.CLOB]
-            
-            let query = 
-            `
-                SELECT P.*, PE.FIRST_NAME || ' ' || PE.LAST_NAME as USER_NAME, G.NAME as GROUP_NAME, POSTED_AT
-                FROM POST P
-                JOIN CONTENT C
-                ON C.CONTENT_ID = P.CONTENT_ID
-                JOIN PGROUP G ON C.GROUP_ID = G.GROUP_ID
-                JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = C.ROLE_ID
-                JOIN PERSON PE ON PE.PERSON_ID = AR.PERSON_ID
-                WHERE C.GROUP_ID = :gId  
-                AND C.CONTENT_ID ${req.params.direction === 'after' ? '>' : '<'} :cId
-                ORDER BY posted_at ${req.params.order} FETCH NEXT :count ROW ONLY
-            `
-            let result = await connection.execute<{}>(
-                query,
-                {
-                    gId : groupId,
-                    count : count,
-                    cId : from
-                },{
-                    outFormat : oracledb.OUT_FORMAT_OBJECT
-                }
-            )
+        oracledb.fetchAsString = [oracledb.CLOB]
+        
+        
+        let query = `
+        
+            SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
+            COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY
+            FROM
+            (
+            SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
+                COUNT(UNIQUE VU.ROLE_ID) as UPVOTE_COUNT,
+                COUNT(UNIQUE  VD.ROLE_ID) as DOWNVOTE_COUNT
+            FROM GROUP_MEMBER GM
+            JOIN PGROUP G on GM.GROUP_ID = G.GROUP_ID
+            JOIN CONTENT C ON C.GROUP_ID = G.GROUP_ID
+            JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
+            LEFT OUTER JOIN COMMENT_ CMT ON CMT.COMMENT_OF = P.CONTENT_ID
+            LEFT OUTER JOIN VOTE VU ON VU.CONTENT_ID = C.CONTENT_ID AND VU.DOWN = 'N'
+            LEFT OUTER JOIN VOTE VD ON VD.CONTENT_ID = C.CONTENT_ID AND VD.DOWN = 'Y'
 
-            if(!result || !result.rows){
-                return serverError(next, res);
+            WHERE GM.ROLE_ID = :rId AND GM.GROUP_ID = :gId AND
+            C.CONTENT_ID ${req.params.direction === 'after' ? '>' : '<'} :cId
+            GROUP BY C.CONTENT_ID
+            FETCH NEXT :count ROW ONLY
+            ) CONTENT_IDS
+            JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
+            JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
+            JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
+            JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
+            JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+            ORDER BY C.POSTED_AT
+        `
+
+        let result = await connection.execute<{}>(
+            query,
+            {
+                rId : ret.id,
+                gId : groupId,
+                count : count,
+                cId : from
+            },{
+                outFormat : oracledb.OUT_FORMAT_OBJECT
             }
-            return res.status(200).json(result.rows);
+        )
+
+        if(!result || !result.rows){
+            return serverError(next, res);
         }
-        else{
-            return unAuthorized(next, res);
-        }
+        return res.status(200).json(result.rows);
+    
 
 
     }
@@ -910,32 +391,42 @@ router.route('/post/:contentId')
         oracledb.fetchAsString = [oracledb.CLOB]
 
         let query = `
-            SELECT PO.TITLE, C.*, P.FIRST_NAME || ' ' || P.LAST_NAME as USER_NAME, G.NAME AS GROUP_NAME
-            FROM CONTENT C
-                    JOIN POST PO ON C.CONTENT_ID = PO.CONTENT_ID
-                    JOIN ACADEMIC_ROLE A ON A.ROLE_ID = C.ROLE_ID
-                    JOIN PERSON P ON A.PERSON_ID = P.PERSON_ID
-                    JOIN PGROUP G ON C.GROUP_ID = G.GROUP_ID
-            WHERE C.CONTENT_ID = :cId
-        `
+                SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
+                COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY
+                FROM
+                (
+                SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
+                    COUNT(UNIQUE VU.ROLE_ID) as UPVOTE_COUNT,
+                    COUNT(UNIQUE  VD.ROLE_ID) as DOWNVOTE_COUNT
+                    FROM
+                    CONTENT C
+                JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
+                LEFT OUTER JOIN COMMENT_ CMT ON CMT.COMMENT_OF = P.CONTENT_ID
+                LEFT OUTER JOIN VOTE VU ON VU.CONTENT_ID = C.CONTENT_ID AND VU.DOWN = 'N'
+                LEFT OUTER JOIN VOTE VD ON VD.CONTENT_ID = C.CONTENT_ID AND VD.DOWN = 'Y'
+                WHERE C.CONTENT_ID = :cId AND EXISTS(SELECT * FROM GROUP_MEMBER GM WHERE GM.ROLE_ID = :rId AND GM.GROUP_ID = C.GROUP_ID )
+                GROUP BY C.CONTENT_ID
+                ) CONTENT_IDS
+                JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
+                JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
+                JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
+                JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
+                JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+            `
         let result = await connection.execute<{
             GROUP_ID : number
         }>(
             query,
             {
+                rId : r.id,
                 cId : contentId
             },{
                 outFormat : oracledb.OUT_FORMAT_OBJECT
             }
         )
         if(!result || !result.rows || result.rows.length == 0 ) return notFound(next, res);
-        let isAuthorized = await checkIfInsideGroup(connection, result.rows[0].GROUP_ID,r.id, r.tableName, next, res);
-        if(isAuthorized){
-            return res.status(200).json(result.rows);
-        }
-        else{
-            return unAuthorized(next, res);
-        }
+        return res.status(200).json(result.rows);
+        
     }
     catch(error){
         console.log(error);
@@ -973,60 +464,55 @@ router.route('/post/:groupId')
         if(!(groupId > 0)){
             return setLocals(400, 'invalid group id', next, res);
         }
-        let r = await checkIfInsideGroup(connection, groupId, ret.id, ret.tableName, next, res);
-        if(r){
-            oracledb.fetchAsString = [oracledb.CLOB]
-            
-            let postQuery = 
-            `
-                BEGIN
-                    :ret := CREATE_POST(
-                        :text,
-                        :roleId,
-                        :title,
-                        :groupId
-                    );
-                END;
-            `;
-            let result = await connection.execute<{
-                ret : {
-                    CONTENT_ID : number,
-                    TITLE : any,
-                    TEXT : any
-                }
-            }>(
-                postQuery,
-                {
-                    text : text,
-                    roleId : ret.id,
-                    title : title,
-                    groupId : groupId,
-                    ret : {dir : oracledb.BIND_OUT, type : "POST%ROWTYPE"},
-                    
-                },
-                {
-                    autoCommit : true
-                }
-            )    
-            if(!result || !result.outBinds){
-                return serverError(next, res);
+        oracledb.fetchAsString = [oracledb.CLOB]
+        
+        let postQuery = 
+        `
+            BEGIN
+                :ret := CREATE_POST(
+                    :text,
+                    :roleId,
+                    :title,
+                    :groupId
+                );
+            END;
+        `;
+        let result = await connection.execute<{
+            ret : {
+                CONTENT_ID : number,
+                TITLE : any,
+                TEXT : any
             }
-            let query = 
-            `
-                SELECT * FROM POST JOIN CONTENT USING (CONTENT_ID) WHERE CONTENT_ID = :cId
-            `
-            let result2 = await connection.execute<{}>(query,{
-                cId : result.outBinds.ret.CONTENT_ID
-            }, {outFormat : oracledb.OUT_FORMAT_OBJECT})
-            if(!result2 || !result2.rows || result2.rows.length == 0){
-                return serverError(next, res);
+        }>(
+            postQuery,
+            {
+                text : text,
+                roleId : ret.id,
+                title : title,
+                groupId : groupId,
+                ret : {dir : oracledb.BIND_OUT, type : "POST%ROWTYPE"},
+                
+            },
+            {
+                autoCommit : true
             }
-            return res.status(200).json(result2.rows);
-            
+        )    
+        if(!result || !result.outBinds){
+            return serverError(next, res);
         }
-        else{
-            return unAuthorized(next, res);
+        let query = 
+        `
+            SELECT * FROM POST JOIN CONTENT USING (CONTENT_ID) WHERE CONTENT_ID = :cId
+        `
+        let result2 = await connection.execute<{}>(query,{
+            cId : result.outBinds.ret.CONTENT_ID
+        }, {outFormat : oracledb.OUT_FORMAT_OBJECT})
+        if(!result2 || !result2.rows || result2.rows.length == 0){
+            return serverError(next, res);
         }
+        return res.status(200).json(result2.rows);
+        
+    
 
 
     }
@@ -1067,7 +553,7 @@ router.route('/comments/:contentId')
                 LEFT OUTER JOIN COMMENT_ COM2 ON COM2.COMMENT_OF = CON1.CONTENT_ID
                 LEFT OUTER JOIN VOTE V ON V.CONTENT_ID = COM1.CONTENT_ID AND V.DOWN = 'N'
                 LEFT OUTER JOIN VOTE V2 ON V2.CONTENT_ID = COM1.CONTENT_ID AND V2.DOWN != 'N'
-                WHERE COM1.COMMENT_OF = :cId GROUP BY COM1.CONTENT_ID, COM1.COMMENT_OF, COM1.POSTED_AT, CON1.ROLE_ID, P.FIRST_NAME, P.LAST_NAME;
+                WHERE COM1.COMMENT_OF = :cId GROUP BY COM1.CONTENT_ID, COM1.COMMENT_OF, COM1.POSTED_AT, CON1.ROLE_ID, P.FIRST_NAME, P.LAST_NAME
 
         `
         let result = await connection.execute<{
@@ -1082,7 +568,7 @@ router.route('/comments/:contentId')
         )
         if(!result || !result.rows ) return notFound(next, res);
         if(result.rows.length == 0) return res.status(200).json([]);
-        let isAuthorized = await checkIfInsideGroup(connection, result.rows[0].GROUP_ID,r.id, r.tableName, next, res);
+        let isAuthorized = await checkIfInsideGroup(connection, result.rows[0].GROUP_ID,r.id, next, res);
         if(isAuthorized){
             return res.status(200).json(result.rows);
         }

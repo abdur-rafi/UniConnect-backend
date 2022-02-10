@@ -130,7 +130,7 @@ router.route('/')
             WHERE
                 B.UNIVERSITY_ID = (${universityQuery})
             GROUP BY
-                B.BATCH_ID, B.NAME, D.DEPARTMENT_ID, D.NAME
+                B.BATCH_ID, B.NAME, D.DEPARTMENT_ID, D.NAME, B.YEAR
             ORDER BY
                 B.BATCH_ID
         `
