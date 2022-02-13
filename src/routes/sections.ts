@@ -1,7 +1,8 @@
 import express from 'express'
 import oracledb from 'oracledb'
 import { closeConnection, extractTableAndId, getUniQuery, invalidForm, notAuthenticated, serverError, setLocals, unAuthorized } from '../reusableParts'
-
+import randomString from 'randomstring';
+import bcrypt from 'bcrypt'
 
 let router = express.Router()
 
@@ -17,7 +18,7 @@ router.route('/')
     try{
         connection = await oracledb.getConnection();
         let body = req.body;
-        if(!body || !body.batchId || !body.departmentId || !body.sectionName || !body.studentCount) return invalidForm(next, res);
+        if(!body || !body.batchId || !body.departmentId || !body.sectionName || !body.studentCount || body.studentCount > 1000) return invalidForm(next, res);
         let query = `
             DECLARE
                 mUniId number;
@@ -43,6 +44,23 @@ router.route('/')
         }, {autoCommit : true});
         if(!result.outBinds) return serverError(next, res);
         console.log(result);
+        let content : any = [];
+        for(let i = 1; i <= body.studentCount; ++i){
+            let randPass = randomString.generate(9);
+            let salt = await bcrypt.genSalt()
+            let hash = await bcrypt.hash(randPass, salt)
+            
+            content.push([null, body.batchId, body.departmentId, randPass, hash, body.sectionName, i]);
+        }
+        query = `
+            DECLARE
+                r STUDENT%ROWTYPE;
+            BEGIN
+                r := CREATE_STUDENT(:1, :2, :3, :4, :5, :6, :7);
+            END;
+        `
+        let result2 = await connection.executeMany(query,content, {autoCommit : true});
+        // console.log(result2);
         return res.status(200).json(result.outBinds.r);
         
     }
