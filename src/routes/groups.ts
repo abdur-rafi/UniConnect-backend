@@ -58,7 +58,8 @@ router.route('/all/posts')
             LEFT OUTER JOIN VOTE VD ON VD.CONTENT_ID = C.CONTENT_ID AND VD.DOWN = 'Y'
 
             WHERE GM.ROLE_ID = :rId
-            GROUP BY C.CONTENT_ID
+            GROUP BY C.CONTENT_ID, C.POSTED_AT
+            ORDER BY C.POSTED_AT
             FETCH NEXT 25 ROW ONLY
             ) CONTENT_IDS
             JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
@@ -66,7 +67,7 @@ router.route('/all/posts')
             JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
             JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
             JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
-            ORDER BY C.POSTED_AT
+            LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
         `
         
 
@@ -344,6 +345,7 @@ router.route('/posts/:groupId/:from/:direction/:count/:order')
             JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
             JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
             JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+            LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
             ORDER BY C.POSTED_AT
         `
 
@@ -412,6 +414,7 @@ router.route('/post/:contentId')
                 JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
                 JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
                 JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+                LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
             `
         let result = await connection.execute<{
             GROUP_ID : number
@@ -543,25 +546,34 @@ router.route('/comments/:contentId')
 
         let query = `
         
-                SELECT COM1.CONTENT_ID, COM1.COMMENT_OF, COM1.POSTED_AT, P.FIRST_NAME || ' ' || P.LAST_NAME as USERNAME, COUNT(COM2.CONTENT_ID) as REPLIES,
-                COUNT(V.ROLE_ID) AS UPVOTE,
-                COUNT(V2.ROLE_ID) as DOWNVOTE
+                SELECT REPLIES, UPVOTE, DOWNVOTE, C.CONTENT_ID, C.TEXT, C.POSTED_AT, C.ROLE_ID, P2.FIRST_NAME || ' ' || p2.LAST_NAME, G.GROUP_ID, G.NAME, Voted.DOWN FROM
+                (SELECT COM1.CONTENT_ID,
+                    COUNT(COM2.CONTENT_ID)             as REPLIES,
+                    COUNT(V.ROLE_ID)                   AS UPVOTE,
+                    COUNT(V2.ROLE_ID)                  as DOWNVOTE
                 FROM COMMENT_ COM1
-                JOIN CONTENT CON1 ON COM1.CONTENT_ID = CON1.CONTENT_ID
-                JOIN ACADEMIC_ROLE AR ON Ar.ROLE_ID = CON1.ROLE_ID
-                JOIN PERSON P ON P.PERSON_ID = Ar.PERSON_ID
-                LEFT OUTER JOIN COMMENT_ COM2 ON COM2.COMMENT_OF = CON1.CONTENT_ID
-                LEFT OUTER JOIN VOTE V ON V.CONTENT_ID = COM1.CONTENT_ID AND V.DOWN = 'N'
-                LEFT OUTER JOIN VOTE V2 ON V2.CONTENT_ID = COM1.CONTENT_ID AND V2.DOWN != 'N'
-                WHERE COM1.COMMENT_OF = :cId GROUP BY COM1.CONTENT_ID, COM1.COMMENT_OF, COM1.POSTED_AT, CON1.ROLE_ID, P.FIRST_NAME, P.LAST_NAME
-
+                        JOIN CONTENT CON1 ON COM1.CONTENT_ID = CON1.CONTENT_ID
+                        LEFT OUTER JOIN COMMENT_ COM2 ON COM2.COMMENT_OF = CON1.CONTENT_ID
+                        LEFT OUTER JOIN VOTE V ON V.CONTENT_ID = COM1.CONTENT_ID AND V.DOWN = 'N'
+                        LEFT OUTER JOIN VOTE V2 ON V2.CONTENT_ID = COM1.CONTENT_ID AND V2.DOWN != 'N'
+                WHERE COM1.COMMENT_OF = :cId
+                GROUP BY COM1.CONTENT_ID) CONTENT_IDS
+                
+                JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
+                JOIN COMMENT_ COMM ON COMM.CONTENT_ID = C.CONTENT_ID
+                JOIN PGROUP G ON G.GROUP_ID = C.GROUP_ID
+                JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
+                JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
+                LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
+ 
         `
         let result = await connection.execute<{
             GROUP_ID : number
         }>(
             query,
             {
-                cId : contentId
+                cId : contentId,
+                rId : r.id
             },{
                 outFormat : oracledb.OUT_FORMAT_OBJECT,
             }
@@ -632,6 +644,50 @@ router.route('/comments/:contentId')
 
 })
 
+router.route('/vote/:contentId')
+.post(async (req, res, next) =>{
+    
+    let r = extractTableAndId(next, req, res);
+    if(!r) return ;
+    if(r.tableName == 'Management') return unAuthorized(next, res);
+    let contentId = parseInt(req.params.contentId);
+    let connection;
+    try{
+
+        if(!req.body) return invalidForm(next, res);
+        let down = req.body.down;
+        if(!down) return invalidForm(next, res);
+        if(down != 'Y' && down != 'N') return invalidForm(next, res);
+        connection = await oracledb.getConnection();
+        oracledb.fetchAsString = [oracledb.CLOB];
+        let query = `
+            BEGIN
+                :ret := TOGGLE_VOTE(:rId, :cId, :down);
+            END;                  
+        `;
+        let result = await connection.execute<{
+            ret : number
+        }>(query, {
+            cId : contentId,
+            rId : r.id,
+            down : down,
+            ret : {dir : oracledb.BIND_OUT, type : oracledb.NUMBER},
+        }, {autoCommit : true})
+        console.log(result);
+        if(!result || !result.outBinds ) return serverError(next, res);
+
+        let ret = result.outBinds.ret;
+        if(ret == 1) return unAuthorized(next, res);
+        return res.status(200).json({message : "success"});
+    }
+    catch(error){
+        console.log(error); 
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
 
 
 export default router;
