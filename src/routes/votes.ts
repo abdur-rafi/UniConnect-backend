@@ -4,7 +4,7 @@ import { closeConnection, extractTableAndId, invalidForm, notAuthenticated, notF
 
 let router = express.Router()
 
-router.route('/vote/:contentId')
+router.route('/:contentId')
 .post(async (req, res, next) =>{
     
     let r = extractTableAndId(next, req, res);

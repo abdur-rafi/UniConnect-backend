@@ -1,6 +1,5 @@
 import express from 'express';
 import oracledb from 'oracledb'
-import testRouter from './routes/test'
 import bodyParser from 'body-parser'
 
 import morgan from 'morgan'
@@ -17,6 +16,10 @@ import groupsRouter from './routes/groups';
 import postRouter from './routes/posts';
 import commentsRouter from './routes/comments';
 import votesRouter from './routes/votes';
+import requestRouter from './routes/requests';
+import studentsRouter from './routes/students';
+import teachersRouter from './routes/teachers';
+
 
 require('dotenv').config()
 
@@ -59,6 +62,9 @@ oracledb.createPool({
 	app.use('/posts', postRouter);
 	app.use('/comments', commentsRouter);
 	app.use('/votes', votesRouter);
+	app.use('/requests', requestRouter);
+	app.use('/students', studentsRouter);
+	app.use('/teachers', teachersRouter);
 
 	app.use((req, res)=>{
 		res.status(res.locals.status).json({

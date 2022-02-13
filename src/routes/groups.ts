@@ -8,6 +8,8 @@ let router = express.Router()
 
 
 // get info of custom 
+
+
 router.route('/custom')
 .get(async (req, res, next) =>{
     let ret = extractTableAndId(next, req, res);
@@ -98,47 +100,6 @@ router.route('/custom')
     }
 })
 
-// add members to custom group
-router.route('/custom/:groupId/add')
-.post(async (req, res, next) =>{
-    let ret = extractTableAndId(next, req, res);
-    if(!ret) return;
-    let connection;
-    if(ret.tableName == 'Management'){
-        return unAuthorized(next, res);
-    }
-    try{
-        connection = await oracledb.getConnection();
-        let body = req.body;
-        if(!body || !body.newMembers || body.newMembers.length == 0){
-            // console.log("here")
-            return invalidForm(next, res);
-        }
-        let members : [number] = body.newMembers;
-        let groupId = parseInt(req.params.groupId);
-        if(!(groupId >= 0)){
-            // console.log("here")
-            return invalidForm(next, res);
-        }
-        let query = `
-            INSERT INTO JOIN_GROUP_REQUEST(GROUP_ID, REQUEST_FROM, REQUEST_TO) 
-            VALUES (:1, :2, :3)
-        `
-        let content : any = []
-        members.forEach(m => {
-            content.push([groupId, ret!.id , m])
-        });
-        let result = await connection.executeMany(query, content, {autoCommit : true});
-        return res.status(200).json({});
-    }
-    catch(error){
-        console.log(error);
-        return serverError(next, res);
-    }
-    finally{
-        closeConnection(connection);
-    }
-})
 
 // get Info of default groups
 router.route('/defaults')

@@ -21,7 +21,8 @@ router.route('/all/')
         let query = `
                         
             SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
-            COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY
+            COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY,
+            VOTED.DOWN
             FROM
             (
             SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
@@ -37,7 +38,7 @@ router.route('/all/')
 
             WHERE GM.ROLE_ID = :rId
             GROUP BY C.CONTENT_ID, C.POSTED_AT
-            ORDER BY C.POSTED_AT
+            ORDER BY C.POSTED_AT DESC
             FETCH NEXT 25 ROW ONLY
             ) CONTENT_IDS
             JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
@@ -116,7 +117,8 @@ router.route('/:groupId/:from/:direction/:count/:order')
         let query = `
         
             SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
-            COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY
+            COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY,
+            VOTED.DOWN
             FROM
             (
             SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
@@ -188,7 +190,8 @@ router.route('/:contentId')
 
         let query = `
                 SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
-                COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY
+                COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY,
+                VOTED.DOWN
                 FROM
                 (
                 SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
