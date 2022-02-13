@@ -1,19 +1,15 @@
 import express from 'express'
 import oracledb from 'oracledb'
-import { closeConnection, extractTableAndId, getUniQuery, invalidForm, notAuthenticated, serverError, setLocals } from '../reusableParts'
+import { closeConnection, extractTableAndId, getUniQuery, invalidForm, notAuthenticated, serverError, setLocals, unAuthorized } from '../reusableParts'
 
 let router = express.Router()
 
 router.route('/')
 .post(async (req, res, next)=>{
 
-    if(!req.signedCookies || !req.signedCookies.user || !req.signedCookies.user.managementId){
-        return notAuthenticated(next, res);
-    }
-    let managementId = req.signedCookies.user.managementId;
-
+    let ret = extractTableAndId(next, req, res);
+    if(!ret || ret.tableName !== 'Management') return unAuthorized(next, res); 
     let body = req.body;
-
     if(!body || !body.deptName || !body.deptCode){
         return invalidForm(next, res);
     }
@@ -36,12 +32,11 @@ router.route('/')
         connection = await oracledb.getConnection();
         connection.execute<{
             ret : {
-                
             }
         }>(
             query,
             {
-                mId : managementId,
+                mId : ret.id,
                 deptName : req.body.deptName.trim(),
                 deptCode : req.body.deptCode.trim(),
                 ret : {dir : oracledb.BIND_OUT,type : "DEPARTMENT%ROWTYPE"}
@@ -88,6 +83,7 @@ router.route('/')
       
 
 })
+
 .get(async (req, res, next)=>{
     let ret = extractTableAndId(next, req, res);
     if(!ret) return null;
@@ -150,6 +146,7 @@ router.route('/')
         closeConnection(connection);
     }
 })
+
 router.route('/deptcodes')
 .get(async (req, res, next)=>{
     let cookie = req.signedCookies;
