@@ -14,6 +14,9 @@ import univarsityRouter from './routes/university'
 import departmentsRouter from './routes/departments'
 import batchRouter from './routes/batches';
 import groupsRouter from './routes/groups';
+import postRouter from './routes/posts';
+import commentsRouter from './routes/comments';
+import votesRouter from './routes/votes';
 
 require('dotenv').config()
 
@@ -53,7 +56,10 @@ oracledb.createPool({
 	app.use('/departments', departmentsRouter);
 	app.use('/batches', batchRouter);
 	app.use('/groups', groupsRouter);
-	
+	app.use('/posts', postRouter);
+	app.use('/comments', commentsRouter);
+	app.use('/votes', votesRouter);
+
 	app.use((req, res)=>{
 		res.status(res.locals.status).json({
 			message : res.locals.message
