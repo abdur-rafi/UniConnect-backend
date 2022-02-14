@@ -22,7 +22,9 @@ router.route('/all/')
                         
             SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
             COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY,
-            VOTED.DOWN
+            VOTED.DOWN, T.ROLE_ID as TEACHER, S.ROLE_ID as STUDENT,
+            D.NAME as DEPARTMENT_NAME
+            
             FROM
             (
             SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
@@ -47,7 +49,11 @@ router.route('/all/')
             JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
             JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
             LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
-        `
+            LEFT OUTER JOIN TEACHER T ON T.ROLE_ID = C.ROLE_ID
+            LEFT OUTER JOIN STUDENT S ON S.ROLE_ID = C.ROLE_ID
+            LEFT OUTER JOIN DEPARTMENT D on D.DEPARTMENT_ID = T.DEPARTMENT_ID OR D.DEPARTMENT_ID = S.DEPARTMENT_ID
+
+            `
         
 
         let result = await connection.execute(
@@ -118,7 +124,9 @@ router.route('/:groupId/:from/:direction/:count/:order')
         
             SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
             COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY,
-            VOTED.DOWN
+            VOTED.DOWN, T.ROLE_ID as TEACHER, S.ROLE_ID as STUDENT,
+            D.NAME as DEPARTMENT_NAME
+            
             FROM
             (
             SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
@@ -143,6 +151,10 @@ router.route('/:groupId/:from/:direction/:count/:order')
             JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
             JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
             LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
+            LEFT OUTER JOIN TEACHER T ON T.ROLE_ID = C.ROLE_ID
+            LEFT OUTER JOIN STUDENT S ON S.ROLE_ID = C.ROLE_ID
+            LEFT OUTER JOIN DEPARTMENT D on D.DEPARTMENT_ID = T.DEPARTMENT_ID OR D.DEPARTMENT_ID = S.DEPARTMENT_ID
+
             ORDER BY C.POSTED_AT
         `
 
@@ -191,7 +203,9 @@ router.route('/:contentId')
         let query = `
                 SELECT C.CONTENT_ID, C.TEXT,P.TITLE, C.POSTED_AT, G.GROUP_ID, G.NAME as GROUP_NAME,
                 COMMENT_COUNT, UPVOTE_COUNT, DOWNVOTE_COUNT, P2.FIRST_NAME || ' ' || p2.LAST_NAME as POSTED_BY,
-                VOTED.DOWN
+                VOTED.DOWN, T.ROLE_ID as TEACHER, S.ROLE_ID as STUDENT,
+                D.NAME as DEPARTMENT_NAME
+                
                 FROM
                 (
                 SELECT C.CONTENT_ID, COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
@@ -212,7 +226,11 @@ router.route('/:contentId')
                 JOIN ACADEMIC_ROLE AR on C.ROLE_ID = AR.ROLE_ID
                 JOIN PERSON P2 on AR.PERSON_ID = P2.PERSON_ID
                 LEFT OUTER JOIN VOTE VOTED ON VOTED.ROLE_ID = :rId AND VOTED.CONTENT_ID = C.CONTENT_ID
-            `
+                LEFT OUTER JOIN TEACHER T ON T.ROLE_ID = C.ROLE_ID
+                LEFT OUTER JOIN STUDENT S ON S.ROLE_ID = C.ROLE_ID
+                LEFT OUTER JOIN DEPARTMENT D on D.DEPARTMENT_ID = T.DEPARTMENT_ID OR D.DEPARTMENT_ID = S.DEPARTMENT_ID
+
+                `
         let result = await connection.execute<{
             GROUP_ID : number
         }>(

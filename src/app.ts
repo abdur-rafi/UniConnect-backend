@@ -22,6 +22,7 @@ import teachersRouter from './routes/teachers';
 import rolesRouter from './routes/roles';
 import batchDeptRouter from './routes/batchdepts';
 import sectionsRouter from './routes/sections';
+import managementRouter from './routes/management';
 
 require('dotenv').config()
 
@@ -70,6 +71,8 @@ oracledb.createPool({
 	app.use('/roles', rolesRouter);
 	app.use('/batchdepts',batchDeptRouter);
 	app.use('/sections', sectionsRouter);
+	app.use('/managements', managementRouter);
+
 
 	app.use((req, res)=>{
 		res.status(res.locals.status).json({
