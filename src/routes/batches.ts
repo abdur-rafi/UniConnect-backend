@@ -98,8 +98,9 @@ router.route('/')
             SELECT 
                 B.BATCH_ID, 
                 B.NAME as BATCH_NAME,
-                B.YEAR as BATCH_YEAR,  
-                D.NAME as DEPT_NAME, 
+                B.YEAR as YEAR,  
+                D.NAME as DEPARTMENT_NAME,  
+                B.BATCH_TYPE,
                 COUNT(S.ROLE_ID) as STUDENT_COUNT,
                 (
                     SELECT 
@@ -128,7 +129,7 @@ router.route('/')
             WHERE
                 B.UNIVERSITY_ID = (${universityQuery})
             GROUP BY
-                B.BATCH_ID, B.NAME, D.DEPARTMENT_ID, D.NAME, B.YEAR
+                B.BATCH_ID, B.NAME, D.DEPARTMENT_ID, D.NAME, B.YEAR, B.BATCH_TYPE
             ORDER BY
                 B.BATCH_ID
         `
