@@ -43,9 +43,9 @@ router.route('/:contentId')
         
                 SELECT REPLIES, UPVOTE, DOWNVOTE, C.CONTENT_ID, C.TEXT, C.POSTED_AT, C.ROLE_ID, P2.FIRST_NAME || ' ' || p2.LAST_NAME, G.GROUP_ID, G.NAME, Voted.DOWN FROM
                 (SELECT COM1.CONTENT_ID,
-                    COUNT(COM2.CONTENT_ID)             as REPLIES,
-                    COUNT(V.ROLE_ID)                   AS UPVOTE,
-                    COUNT(V2.ROLE_ID)                  as DOWNVOTE
+                    COUNT(UNIQUE COM2.CONTENT_ID)             as REPLIES,
+                    COUNT(UNIQUE V.ROLE_ID)                   AS UPVOTE,
+                    COUNT(UNIQUE V2.ROLE_ID)                  as DOWNVOTE
                 FROM COMMENT_ COM1
                         JOIN CONTENT CON1 ON COM1.CONTENT_ID = CON1.CONTENT_ID
                         LEFT OUTER JOIN COMMENT_ COM2 ON COM2.COMMENT_OF = CON1.CONTENT_ID

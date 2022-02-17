@@ -142,7 +142,8 @@ router.route('/:groupId/:from/:direction/:count/:order')
 
             WHERE GM.ROLE_ID = :rId AND GM.GROUP_ID = :gId AND
             C.CONTENT_ID ${req.params.direction === 'after' ? '>' : '<'} :cId
-            GROUP BY C.CONTENT_ID
+            GROUP BY C.CONTENT_ID, C.POSTED_AT
+            ORDER BY C.POSTED_AT ${req.params.order}
             FETCH NEXT :count ROW ONLY
             ) CONTENT_IDS
             JOIN CONTENT C ON C.CONTENT_ID = CONTENT_IDS.CONTENT_ID
@@ -155,7 +156,6 @@ router.route('/:groupId/:from/:direction/:count/:order')
             LEFT OUTER JOIN STUDENT S ON S.ROLE_ID = C.ROLE_ID
             LEFT OUTER JOIN DEPARTMENT D on D.DEPARTMENT_ID = T.DEPARTMENT_ID OR D.DEPARTMENT_ID = S.DEPARTMENT_ID
 
-            ORDER BY C.POSTED_AT
         `
 
         let result = await connection.execute<{}>(
