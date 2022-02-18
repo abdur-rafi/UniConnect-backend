@@ -1,0 +1,19 @@
+groups
+    student
+        1. sectional
+        2. batchDept
+        3. batch
+        4. departmental-student-stype
+        5. departmental-student-all
+        6. departmental-all
+        7. university-student-stype
+        8. university-student-all
+        9. university-all
+    Teacher
+        1. departmental
+        2. departmental-all
+        3. uni-Teacher
+        4. uni-all
+    
+safety check not implemented for
+    add members
