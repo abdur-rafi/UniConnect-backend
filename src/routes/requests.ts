@@ -94,7 +94,7 @@ router.route('/')
     }
 }) 
 
-router.route('/:requestId')
+router.route('/:requestId/:accept')
 .post(async (req, res, next) =>{
     
     let ret = extractTableAndId(next, req, res);
@@ -103,23 +103,33 @@ router.route('/:requestId')
     if(ret.tableName == 'Management'){
         return unAuthorized(next, res);
     }
+    if(req.params.accept !== 'yes' && req.params.accept !== 'no') return invalidForm(next, res);
     try{
         connection = await oracledb.getConnection();
-        let query = `
+        let query : string;
+        if(req.params.accept === 'yes'){
+            query = `
             
-        BEGIN
-
-            INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE)
-            SELECT GROUP_ID, REQUEST_TO, 'mem' FROM JOIN_GROUP_REQUEST WHERE REQUEST_ID = :id AND REQUEST_TO = :rId;
-            DELETE FROM JOIN_GROUP_REQUEST WHERE GROUP_ID = (SELECT GROUP_ID FROM JOIN_GROUP_REQUEST WHERE REQUEST_TO = :id AND REQUEST_TO = :rId)
-            AND
-            REQUEST_TO = (SELECT REQUEST_TO FROM JOIN_GROUP_REQUEST WHERE REQUEST_TO = :id AND REQUEST_TO = :rId);
-        END;
-
-            `;
+            BEGIN
+    
+                INSERT INTO GROUP_MEMBER(GROUP_ID, ROLE_ID, MEMBER_ROLE)
+                SELECT GROUP_ID, REQUEST_TO, 'mem' FROM JOIN_GROUP_REQUEST WHERE REQUEST_ID = :reqId AND REQUEST_TO = :roleId;
+                DELETE FROM JOIN_GROUP_REQUEST WHERE GROUP_ID = (SELECT GROUP_ID FROM JOIN_GROUP_REQUEST WHERE REQUEST_TO = :roleId AND REQUEST_ID = :reqId)
+                AND
+                REQUEST_TO = (SELECT REQUEST_TO FROM JOIN_GROUP_REQUEST WHERE REQUEST_TO = :roleId AND REQUEST_ID = :reqId);
+            END;`
+    
+        }
+        else{
+            query = `
+            DELETE FROM JOIN_GROUP_REQUEST WHERE REQUEST_ID = :reqId AND REQUEST_TO = :roleId
+            `
+        }
+        
+            ;
         let result = await connection.execute(query, {
-            id : req.params.requestId,
-            rId : ret.id
+            reqId : req.params.requestId,
+            roleId : ret.id
         }, {
             outFormat : oracledb.OUT_FORMAT_OBJECT
         });
