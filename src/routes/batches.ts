@@ -13,8 +13,8 @@ router.route('/')
         return invalidForm(next, res);
     }
     let name : string = req.body.batchName.trim();
-    let year : string = req.body.year.trim();
-    let type = req.body.type.trim();
+    let year : string = req.body.year;
+    let type = req.body.type;
     if(name.length < 3 || (type !== 'pg' && type !== 'ug') || year.length != 4 ){
         return invalidForm(next , res);
     }
@@ -100,7 +100,8 @@ router.route('/')
                 B.NAME as BATCH_NAME,
                 B.YEAR as YEAR,  
                 D.NAME as DEPARTMENT_NAME,  
-                B.BATCH_TYPE,
+                D.DEPARTMENT_ID AS DEPT_ID,
+                B.BATCH_TYPE AS BATCH_TYPE,
                 COUNT(S.ROLE_ID) as STUDENT_COUNT,
                 (
                     SELECT 

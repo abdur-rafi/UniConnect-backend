@@ -195,4 +195,79 @@ router.route('/claim/:roleId')
 })
 
 
+router.route('/details/:deptId/:after/:notClaimed')
+.get(async (req, res, next) =>{
+    
+    let ret = extractTableAndId(next, req, res);
+    
+    if(!ret) return;
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+        SELECT P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, T.ROLE_ID, T.RANK, P.EMAIL
+        ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+        FROM TEACHER T JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
+        LEFT OUTER JOIN PERSON P 
+        on  AR.PERSON_ID = P.PERSON_ID
+        LEFT OUTER JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
+        WHERE D.UNIVERSITY_ID = (${getUniQuery(ret.tableName)}) AND D.DEPARTMENT_ID = :dId AND T.ROLE_ID > :after
+        ${req.params.notClaimed == 'false' ?'' : ' AND AR.PERSON_ID IS NULL '}
+        ORDER BY T.ROLE_ID FETCH NEXT 30 ROWS ONLY
+        `;
+        let result = await connection.execute(query, {
+            dId : req.params.deptId,
+            id : ret.id,
+            after : req.params.after
+        }, {outFormat : oracledb.OUT_FORMAT_OBJECT});
+        res.status(200).json(result.rows);
+        
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
+
+router.route('/search/:deptId/:name')
+.get(async (req, res, next)=>{
+    
+    let ret = extractTableAndId(next, req, res);
+    if(!req.params.name || req.params.name.trim().length < 3){
+        return res.status(400).json({message : "name length should be higher"});
+    }
+    if(!ret) return;
+    let connection;
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+        SELECT P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, T.ROLE_ID, T.RANK, P.EMAIL
+        ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+        FROM TEACHER T JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
+        LEFT OUTER JOIN PERSON P 
+        on  AR.PERSON_ID = P.PERSON_ID
+        LEFT OUTER JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
+        WHERE D.UNIVERSITY_ID = (${getUniQuery(ret.tableName)}) AND 
+        D.DEPARTMENT_ID = :dId AND 
+        LOWER(P.FIRST_NAME || ' ' || p.LAST_NAME) LIKE LOWER(:s) FETCH NEXT 30 ROWS ONLY
+        `;
+        let result = await connection.execute(query, {
+            dId : req.params.deptId,
+            id : ret.id,
+            s : `%${req.params.name}%`
+        }, {outFormat : oracledb.OUT_FORMAT_OBJECT});
+        res.status(200).json(result.rows);
+        
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
 export default router;

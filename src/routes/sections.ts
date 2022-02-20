@@ -73,4 +73,36 @@ router.route('/')
     }
 })
 
+router.route('/:deptId/:batchId')
+.get(async (req, res, next) =>{
+         
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return;
+    
+    let connection; 
+    
+    try{
+        connection = await oracledb.getConnection();
+        let query = `
+        
+        SELECT S.SECTION_NAME, COUNT(DISTINCT SC.ROLE_ID) as STUDENT_COUNT FROM SECTION S JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID 
+        LEFT OUTER JOIN STUDENT SC ON SC.SECTION_NAME = S.SECTION_NAME AND SC.DEPARTMENT_ID = S.DEPARTMENT_ID AND SC.BATCH_ID = S.BATCH_ID
+        WHERE S.DEPARTMENT_ID = :dId AND S.BATCH_ID = :bId
+        AND D.UNIVERSITY_ID = (${getUniQuery(ret.tableName)})
+        GROUP BY S.SECTION_NAME
+        ORDER BY S.SECTION_NAME
+`
+        let result = await connection.execute(query, {id : ret.id, dId : req.params.deptId, bId : req.params.batchId}, {outFormat : oracledb.OUT_FORMAT_OBJECT});
+        console.log(result.rows)
+        res.status(200).json(result.rows)
+            
+    }
+    catch(error){
+        console.log(error);
+        return serverError(next, res);
+    }
+    finally{
+        closeConnection(connection);
+    }
+})
 export default router;
