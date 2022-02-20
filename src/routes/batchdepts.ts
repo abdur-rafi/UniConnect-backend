@@ -34,7 +34,6 @@ router.route('/')
                 :r := CREATE_BATCH_DEPT(:bId, :dId); 
             END;
         `
-            // console.log(body);
 
             let result = await connection.execute<{ r: {} }>(query, {
                 bId: body.batchId,
@@ -43,10 +42,7 @@ router.route('/')
                 r: {dir: oracledb.BIND_OUT, type: "BATCHDEPT%ROWTYPE"}
             }, {autoCommit: true});
             if (!result.outBinds) return serverError(next, res);
-            // console.log(result);
             return res.status(200).json(result.outBinds.r);
-
-            // let result
         } catch (error) {
             console.log(error);
             return serverError(next, res);

@@ -12,7 +12,7 @@ router.route('/login/:id')
         if (!cookie || !cookie.user) {
             return notAuthenticated(next, res);
         }
-        // console.log(cookie);
+
         let personId = cookie.user.personId;
         if (!personId) {
             return invalidCookie(next, res);

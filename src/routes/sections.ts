@@ -15,6 +15,7 @@ router.route('/')
         if (ret.tableName !== 'Management') {
             return unAuthorized(next, res);
         }
+
         try {
             connection = await oracledb.getConnection();
             let body = req.body;

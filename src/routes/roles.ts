@@ -45,9 +45,8 @@ router.route('/claim/:roleId')
             }, {outFormat: oracledb.OUT_FORMAT_OBJECT});
 
             if (!result.rows || result.rows.length == 0) return noUserFound(next, res);
-            // console.log(result);
+
             let same = await bcrypt.compare(body.password, result.rows[0].PASSWORD);
-            // console.log(same);
             if (same) {
                 query = `
                     UPDATE ACADEMIC_ROLE

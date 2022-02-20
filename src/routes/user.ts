@@ -145,14 +145,12 @@ router.route('/login')
                 }
             )
 
-
             res.cookie('user', {
                 personId: personId
             }, {
                 signed: true
             });
 
-            // console.log(resultTeachers.rows)
             res.status(200).json({
                 personInfo: {
                     personId: personId
@@ -167,7 +165,6 @@ router.route('/login')
         } finally {
             await closeConnection(connection);
         }
-
     })
 
 router.route('/signup')

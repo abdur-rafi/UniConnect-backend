@@ -168,6 +168,7 @@ router.route('/deptcodes')
             {mId : managementId},
             // {outFormat : oracledb.OUT_FORMAT_OBJECT}
         )
+
         console.log(result);
         res.status(200).json({deptCodes : result.rows});
     }

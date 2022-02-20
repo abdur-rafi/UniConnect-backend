@@ -154,6 +154,7 @@ router.route('/:batchId/')
                        B.NAME           as BATCH_NAME,
                        B.YEAR           as BATCH_YEAR,
                        D.NAME           as DEPT_NAME,
+                       D.DEPARTMENT_ID  as DEPT_ID,
                        COUNT(S.ROLE_ID) as STUDENT_COUNT,
                        (
                            SELECT COUNT(SECTION_NAME)
