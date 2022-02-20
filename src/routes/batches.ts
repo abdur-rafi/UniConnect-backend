@@ -140,7 +140,6 @@ router.route('/')
 
 router.route('/:batchId/')
     .get(async (req, res, next) => {
-        // console.log("here");
         let ret = extractTableAndId(next, req, res);
         console.log(ret);
         if (!ret) {

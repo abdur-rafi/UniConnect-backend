@@ -88,7 +88,7 @@ export function extractTableAndId(next : NextFunction, req : Request, res : Resp
     
 }
 
-export function getUniQuery(tableName : loggedAs) : string{
+export function getUniQuery(tableName : loggedAs, index = -1) : string{
     let universityQuery;
     if(tableName == 'Teacher' || tableName == 'Student'){
         universityQuery = `
@@ -99,7 +99,7 @@ export function getUniQuery(tableName : loggedAs) : string{
                 DEPARTMENT
             USING (DEPARTMENT_ID)
             WHERE
-                ROLE_ID = :id
+                ROLE_ID = ${index == -1 ? ':id' : (':' + index)}
         `
     }
     else{
@@ -108,7 +108,7 @@ export function getUniQuery(tableName : loggedAs) : string{
             FROM 
                 MANAGEMENT 
             WHERE
-                MANAGEMENT_ID = :id
+                MANAGEMENT_ID = ${index == -1 ? ':id' : (':' + index)}
         `
     }
     return universityQuery;
