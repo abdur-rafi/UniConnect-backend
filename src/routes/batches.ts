@@ -21,8 +21,8 @@ router.route('/')
             return invalidForm(next, res);
         }
         let name: string = req.body.batchName.trim();
-        let year: string = req.body.year.trim();
-        let type = req.body.type.trim();
+        let year: string = req.body.year;
+        let type = req.body.type;
         if (name.length < 3 || (type !== 'pg' && type !== 'ug') || year.length != 4) {
             return invalidForm(next, res);
         }
@@ -97,6 +97,7 @@ router.route('/')
                 SELECT B.BATCH_ID,
                        B.NAME           as BATCH_NAME,
                        B.YEAR           as BATCH_YEAR,
+                       B.BATCH_TYPE     as BATCH_TYPE,
                        D.NAME           as DEPT_NAME,
                        COUNT(S.ROLE_ID) as STUDENT_COUNT,
                        (
@@ -119,7 +120,7 @@ router.route('/')
                      ON
                          S.DEPARTMENT_ID = D.DEPARTMENT_ID AND S.BATCH_ID = B.BATCH_ID
                 WHERE B.UNIVERSITY_ID = (${universityQuery})
-                GROUP BY B.BATCH_ID, B.NAME, D.DEPARTMENT_ID, D.NAME, B.YEAR
+                GROUP BY B.BATCH_ID, B.NAME, B.BATCH_TYPE, D.DEPARTMENT_ID, D.NAME, B.YEAR
                 ORDER BY B.BATCH_ID
             `
             let result = await connection.execute(
