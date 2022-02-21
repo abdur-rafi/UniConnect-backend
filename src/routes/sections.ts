@@ -2,7 +2,6 @@ import express from 'express'
 import oracledb from 'oracledb'
 import {closeConnection, extractTableAndId, getUniQuery, invalidForm, serverError, unAuthorized} from '../reusableParts'
 import randomString from 'randomstring';
-import bcrypt from 'bcrypt'
 
 let router = express.Router()
 
@@ -19,7 +18,10 @@ router.route('/')
         try {
             connection = await oracledb.getConnection();
             let body = req.body;
-            if (!body || !body.batchId || !body.departmentId || !body.sectionName || !body.studentCount || body.studentCount > 1000) return invalidForm(next, res);
+            if (!body || !body.batchId || !body.departmentId || !body.sectionName || !body.studentCount || body.studentCount > 1000) {
+                return invalidForm(next, res);
+            }
+
             let query = `
             DECLARE
                 mUniId number;
@@ -43,26 +45,22 @@ router.route('/')
                 sName: body.sectionName,
                 r: {dir: oracledb.BIND_OUT, type: "SECTION%ROWTYPE"}
             }, {autoCommit: true});
+
             if (!result.outBinds) return serverError(next, res);
-            console.log(result);
+
             let content: any = [];
             for (let i = 1; i <= body.studentCount; ++i) {
                 let randPass = randomString.generate(9);
-                let salt = await bcrypt.genSalt()
-                let hash = await bcrypt.hash(randPass, salt)
-
-                content.push([null, body.batchId, body.departmentId, randPass, hash, body.sectionName, i]);
+                content.push([null, body.batchId, body.departmentId, randPass, body.sectionName, i]);
             }
             query = `
             DECLARE
                 r STUDENT%ROWTYPE;
             BEGIN
-                r := CREATE_STUDENT(:1, :2, :3, :4, :5, :6, :7);
+                r := CREATE_STUDENT(:1, :2, :3, :4, :5, :6);
             END;
         `
             await connection.executeMany(query, content, {autoCommit: true});
-            return res.status(200).json(result.outBinds.r);
-
         } catch (error) {
             console.log(error);
             return serverError(next, res);
@@ -83,7 +81,6 @@ router.route('/:deptId/:batchId')
         try {
             connection = await oracledb.getConnection();
             let query = `
-
                 SELECT S.SECTION_NAME, COUNT(DISTINCT SC.ROLE_ID) as STUDENT_COUNT
                 FROM SECTION S
                          JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
@@ -96,14 +93,14 @@ router.route('/:deptId/:batchId')
                 GROUP BY S.SECTION_NAME
                 ORDER BY S.SECTION_NAME
             `
+
             let result = await connection.execute(query, {
                 id: ret.id,
                 dId: req.params.deptId,
                 bId: req.params.batchId
             }, {outFormat: oracledb.OUT_FORMAT_OBJECT});
-            console.log(result.rows)
-            res.status(200).json(result.rows)
 
+            res.status(200).json(result.rows)
         } catch (error) {
             console.log(error);
             return serverError(next, res);

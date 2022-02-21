@@ -2,8 +2,10 @@ import express from 'express'
 import oracledb from 'oracledb'
 import {
     closeConnection,
-    extractTableAndId, getUniQuery,
-    invalidCookie, invalidForm,
+    extractTableAndId,
+    getUniQuery,
+    invalidCookie,
+    invalidForm,
     notAuthenticated,
     noUserFound,
     serverError
@@ -17,10 +19,12 @@ router.route('/login/:id')
         if (!cookie || !cookie.user) {
             return notAuthenticated(next, res);
         }
+
         let personId = cookie.user.personId;
         if (!personId) {
             return invalidCookie(next, res);
         }
+
         let connection;
         try {
             connection = await oracledb.getConnection();
@@ -34,6 +38,7 @@ router.route('/login/:id')
                 WHERE AR.PERSON_ID = :pId
                   AND S.ROLE_ID = :sId
             `
+
             let result = await connection.execute<{
                 ID: number
             }>(
@@ -50,6 +55,7 @@ router.route('/login/:id')
             }, {
                 signed: true
             })
+
             return res.status(200).json({
                 personId: personId,
                 studentId: result.rows[0].ID
@@ -57,21 +63,18 @@ router.route('/login/:id')
         } catch (error) {
             console.log(error);
             return serverError(next, res);
-
         } finally {
             await closeConnection(connection);
-
         }
     })
-
 
 router.route('/:deptId/:batchId/:after/:name')
     .post(async (req, res, next) => {
 
         let ret = extractTableAndId(next, req, res);
         if (!ret) return;
-        // console.log(req.body.sectionNames)
         if (!req.body || !req.body.sectionNames) return invalidForm(next, res);
+
         let connection;
 
         try {
@@ -87,7 +90,7 @@ router.route('/:deptId/:batchId/:after/:name')
                        P.EMAIL,
                        S.SECTION_NAME,
                        S.SECTION_ROLL_NO
-                                                             ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+                                                             ${ret.tableName === 'Management' ? ',AR.TOKEN' : ''}
                 FROM STUDENT S
                          JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
                          JOIN ACADEMIC_ROLE AR on S.ROLE_ID = AR.ROLE_ID

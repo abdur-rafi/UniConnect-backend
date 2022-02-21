@@ -1,6 +1,6 @@
 import express from 'express'
 import oracledb from 'oracledb'
-import bcrypt from 'bcrypt'
+import randomString from 'randomstring';
 
 import {
     closeConnection,
@@ -32,10 +32,8 @@ router.route('/create/')
             connection = await oracledb.getConnection();
             let body = req.body;
             if (!body) return invalidForm(next, res);
-            if (!body.rank || !body.departmentId || !body.password) return invalidForm(next, res);
+            if (!body.rank || !body.departmentId) return invalidForm(next, res);
 
-            let salt = await bcrypt.genSalt()
-            let hash = await bcrypt.hash(body.password, salt)
             let query = `
         
         DECLARE
@@ -46,7 +44,7 @@ router.route('/create/')
             IF d = 0 THEN
                 RAISE_APPLICATION_ERROR(-20999,'Unauthorized');
             end if;
-            :r := CREATE_TEACHER(null, :pass, :hash, :rank, :dId);
+            :r := CREATE_TEACHER(null, :pass , :rank, :dId);
         end; 
         `
             let result = await connection.execute<{
@@ -54,13 +52,11 @@ router.route('/create/')
             }>(query, {
                 dId: req.body.departmentId,
                 mId: ret.id,
-                pass: body.password,
-                hash: hash,
+                pass: randomString.generate(9),
                 rank: body.rank,
                 r: {dir: oracledb.BIND_OUT, type: "TEACHER%ROWTYPE"},
             }, {autoCommit: true});
 
-            // console.log(result);
             if (!result.outBinds) return serverError(next, res);
             return res.status(200).json(result.outBinds.r);
         } catch (error) {
@@ -121,79 +117,6 @@ router.route('/login/:id')
             return serverError(next, res);
         } finally {
             await closeConnection(connection);
-
-        }
-    })
-
-
-router.route('/claim/:roleId')
-    .post(async (req, res, next) => {
-
-        let cookie = req.signedCookies;
-        if (!cookie || !cookie.user) {
-            notAuthenticated(next, res);
-            return null;
-        }
-        let user = cookie.user;
-        if (!user.personId) {
-            return notAuthenticated(next, res);
-        }
-
-
-        let personId = user.personId;
-
-        let connection;
-        try {
-            connection = await oracledb.getConnection();
-            let body = req.body;
-            if (!body || !body.password) return invalidForm(next, res);
-            let query = `
-                SELECT *
-                FROM ACADEMIC_ROLE
-                WHERE ROLE_ID = :rId
-            `
-            if (!(parseInt(req.params.roleId) > 0)) {
-                return res.status(400).json({message: "invalid request id parameter"});
-            }
-
-            let result = await connection.execute<{
-                ROLE_ID: number,
-                PASSWORD: string
-            }>(query, {
-                rId: req.params.roleId
-            }, {outFormat: oracledb.OUT_FORMAT_OBJECT});
-
-            if (!result.rows || result.rows.length == 0) return noUserFound(next, res);
-            // console.log(result);
-            let same = await bcrypt.compare(body.password, result.rows[0].PASSWORD);
-            // console.log(same);
-            if (same) {
-                query = `
-                    UPDATE ACADEMIC_ROLE
-                    SET PERSON_ID = :pId
-                    WHERE ROLE_ID = :rId
-                `
-
-                await connection.execute(query, {
-                    pId: personId,
-                    rId: req.params.roleId
-                }, {autoCommit: true});
-                res.cookie('user', {
-                    personId: personId,
-                    teacherId: parseInt(req.params.roleId)
-                }, {
-                    signed: true
-                });
-
-                return res.status(200).json({message: "role claimed successfully"});
-            } else {
-                return unAuthorized(next, res);
-            }
-        } catch (error) {
-            console.log(error);
-            return serverError(next, res);
-        } finally {
-            await closeConnection(connection);
         }
     })
 
@@ -212,7 +135,7 @@ router.route('/details/:deptId/:after/:notClaimed')
                        T.ROLE_ID,
                        T.RANK,
                        P.EMAIL
-                                                             ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+                                                             ${ret.tableName === 'Management' ? ',AR.TOKEN' : ''}
                 FROM TEACHER T
                          JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
                          LEFT OUTER JOIN PERSON P
@@ -239,7 +162,6 @@ router.route('/details/:deptId/:after/:notClaimed')
         }
     })
 
-
 router.route('/search/:deptId/:name')
     .get(async (req, res, next) => {
 
@@ -256,7 +178,7 @@ router.route('/search/:deptId/:name')
                        T.ROLE_ID,
                        T.RANK,
                        P.EMAIL
-                                                             ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+                                                             ${ret.tableName === 'Management' ? ',AR.TOKEN' : ''}
                 FROM TEACHER T
                          JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
                          LEFT OUTER JOIN PERSON P
@@ -280,6 +202,5 @@ router.route('/search/:deptId/:name')
             await closeConnection(connection);
         }
     })
-
 
 export default router;

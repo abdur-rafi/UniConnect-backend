@@ -91,7 +91,8 @@ router.route('/')
 
         let query = `
             SELECT 
-                D.NAME as DEPARTMENT_NAME,
+                D.DEPARTMENT_ID as DEPARTMENT_ID,
+                D.NAME as NAME,
                 B.NAME as BATCH_NAME,
                 B.YEAR,
                 B.BATCH_ID,

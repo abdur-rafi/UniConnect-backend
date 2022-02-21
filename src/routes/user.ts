@@ -167,26 +167,34 @@ router.route('/login')
         }
     })
 
+
 router.route('/signup')
     .post(async (req, res, next) => {
         let fName: string = req.body.first_name;
         let lName: string = req.body.last_name;
-        let address: string = req.body.address;
+        let houseAdress: string = req.body.house_address;
+        let district = req.body.district;
+        let division = req.body.division;
+        let postalCode = req.body.postal_code;
         let email: string = req.body.email;
         let phoneNo: string = req.body.phone_number;
         let dateOfBirth: string = req.body.date_of_birth;
         let password: string = req.body.password;
         console.log(req.body);
 
-        if (!(fName && lName && address && email && phoneNo && dateOfBirth && password)) {
+        if (!(fName && lName && houseAdress && email && phoneNo && dateOfBirth && password && district && division && postalCode)) {
             return invalidForm(next, res);
         }
         fName = fName.trim();
         lName = lName.trim();
-        address = address.trim();
+        houseAdress = houseAdress.trim();
         email = email.trim();
         phoneNo = phoneNo.trim();
         dateOfBirth = dateOfBirth.trim();
+        division = division.trim();
+        district = district.trim();
+        postalCode = postalCode.trim();
+
         // password = password.trim();
 
         if (fName.length < 2 || lName.length < 2 || email.length < 4 || password.length < 5) {
@@ -207,7 +215,10 @@ router.route('/signup')
                 :email,
                 :phoneNo,
                 TO_DATE(:dateOfBirth,'dd/mm/yyyy'),
-                :password
+                :password,
+                :distr,
+                :div,
+                :postalCode
             );
         END;
     `
@@ -231,11 +242,14 @@ router.route('/signup')
                 {
                     fName: fName,
                     lName: lName,
-                    address: address,
+                    address: houseAdress,
                     email: email,
                     phoneNo: phoneNo,
                     dateOfBirth: dateOfBirth,
                     password: hash,
+                    distr: district,
+                    div: division,
+                    postalCode: postalCode,
                     ret: {dir: oracledb.BIND_OUT, type: "PERSON%ROWTYPE"}
                 },
                 {
@@ -271,14 +285,11 @@ router.route('/signup')
 
                 })
             )
-
         } catch (error) {
             console.log(error);
             return serverError(next, res);
-
         } finally {
             await closeConnection(connection);
-
         }
     })
 
