@@ -68,7 +68,7 @@ oracledb.createPool({
 	app.use('/votes', votesRouter);
 	app.use('/requests', requestRouter);
 	app.use('/students', studentsRouter);
-	app.use('/teachers', teachersRouter);
+	app.use('/teachers', teachersRouter); 
 	app.use('/roles', rolesRouter);
 	app.use('/batchdepts',batchDeptRouter);
 	app.use('/sections', sectionsRouter);

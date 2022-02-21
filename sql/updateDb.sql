@@ -1,74 +1,74 @@
--- ALTER TABLE ACADEMIC_ROLE DROP COLUMN GENERATED_PASS;
--- ALTER TABLE ACADEMIC_ROLE RENAME COLUMN PASSWORD TO TOKEN;
--- create OR REPLACE FUNCTION CREATE_ACADEMIC_ROLE(
---     personId number,
---     token_ ACADEMIC_ROLE.TOKEN%TYPE
--- )
--- RETURN ACADEMIC_ROLE%rowtype
--- AS
---     academicRole ACADEMIC_ROLE%rowtype;
--- BEGIN
---     INSERT INTO
---         ACADEMIC_ROLE(person_id, TOKEN)
---     VALUES (personId, token_)
---     RETURNING ROLE_ID, person_id, token, TIMESTAMP
---     INTO
---     academicRole.ROLE_ID, academicRole.person_id,
---         academicRole.TOKEN, academicRole.TIMESTAMP;
---     return academicRole;
--- end;
--- /
+-- ALTER TABLE PERSON RENAME COLUMN HOME_ADDRESS TO HOUSE_ADDRESS;
+-- ALTER TABLE PERSON ADD DISTRICT VARCHAR2(256);
+-- ALTER TABLE PERSON ADD DIVISION VARCHAR2(256);
+-- ALTER TABLE PERSON ADD POSTAL_CODE VARCHAR2(16);
 
 
--- create OR REPLACE FUNCTION CREATE_STUDENT(
---     personId number,
---     batchId number,
---     departmentId number,
---     token_ ACADEMIC_ROLE.TOKEN%TYPE,
---     sectionName STUDENT.section_name%TYPE,
---     sectionRolNo STUDENT.section_roll_no%TYPE
---
+-- create OR REPLACE FUNCTION CREATE_PERSON(
+--     fName PERSON.first_name%type,
+--     lName PERSON.last_name%type,
+--     house_addr PERSON.HOUSE_ADDRESS%type,
+--     email_ PERSON.email%type,
+--     phoneNo PERSON.phone_no%type,
+--     dateOfBirth PERSON.date_of_birth%type,
+--     password_ PERSON.password%type,
+--     district_ PERSON.DISTRICT%TYPE,
+--     division_ PERSON.DIVISION%TYPE,
+--     postal_ PERSON.POSTAL_CODE%TYPE
 -- )
--- RETURN STUDENT%rowtype
+-- return Person%rowtype
 -- AS
---     studentRow STUDENT%rowtype;
---     academicRoleRow ACADEMIC_ROLE%rowtype;
+--     personRow Person%rowtype;
 -- BEGIN
---     academicRoleRow := CREATE_ACADEMIC_ROLE(personId,token_);
---     INSERT INTO STUDENT(ROLE_ID, BATCH_ID, DEPARTMENT_ID, SECTION_NAME, SECTION_ROLL_NO)
+--     INSERT INTO Person(first_name, last_name, HOUSE_ADDRESS, email, phone_no, date_of_birth, password, DISTRICT, DIVISION, POSTAL_CODE)
 --     VALUES
---     (academicRoleRow.ROLE_ID, batchId, departmentId, sectionName, sectionRolNo) returning
---     role_id, batch_id, department_id, section_name, section_roll_no
+--     (fName, lName, house_addr,email_,phoneNo, dateOfBirth,password_, district_, division_, postal_)
+--     returning
+--     person_id, first_name, last_name, HOUSE_ADDRESS, email, phone_no, date_of_birth, password, DISTRICT, DIVISION, POSTAL_CODE
 --     INTO
---     studentRow.ROLE_ID, studentRow.batch_id, studentRow.department_id, studentRow.section_name ,studentRow.section_roll_no;
---     return studentRow;
+--     personRow.person_id, personRow.first_name, personRow.last_name, personRow.HOUSE_ADDRESS, personRow.email, personRow.phone_no, personRow.date_of_birth,
+--         personRow.password, personRow.DISTRICT, personRow.DIVISION, personRow.POSTAL_CODE;
+--     return personRow;
 -- end;
 -- /
 
 
---
--- create OR REPLACE FUNCTION CREATE_TEACHER(
---     personId number,
---     token_ ACADEMIC_ROLE.TOKEN%TYPE,
---     rank_ TEACHER.RANK%TYPE,
---     departmentId number
--- )
--- RETURN TEACHER%rowtype
--- AS
---     teacherRow TEACHER%rowtype;
---     academicRoleRow ACADEMIC_ROLE%rowtype;
--- BEGIN
---     academicRoleRow := CREATE_ACADEMIC_ROLE(personId, token_);
---
---     INSERT INTO TEACHER(ROLE_ID, rank, department_id)
---     VALUES (academicRoleRow.ROLE_ID, rank_, departmentId)
---     RETURNING ROLE_ID, rank, department_id
---     INTO
---     teacherRow.ROLE_ID, teacherRow.rank, teacherRow.department_id;
---     return teacherRow;
--- end;
--- /
+-- ALTER TABLE ACADEMIC_ROLE ADD CONSTRAINT MINIMUM_TOKEN_LENGTH CHECK ( LENGTH(TOKEN) >= 8 );
+-- ALTER TABLE BATCH ADD CONSTRAINT  MINIMUM_BATCH_NAME_LENGTH CHECK((LENGTH(NAME) >= 3));
 
--- UPDATE ACADEMIC_ROLE SET TOKEN = 'PASSWORD';
+CREATE OR REPLACE TRIGGER CHECK_DATE
+BEFORE INSERT ON
+    BATCH
+    FOR EACH ROW
+DECLARE
+BEGIN
+    IF (:new.YEAR <= (TO_NUMBER(TO_CHAR(SYSDATE, 'yyyy')) + 2) AND :new.YEAR >= (TO_NUMBER(TO_CHAR(SYSDATE, 'yyyy')) - 10) AND MOD(:new.YEAR, 1) = 0) = FALSE THEN
+        RAISE_APPLICATION_ERROR(-20999, 'invalid date');
+    end if;
+end;
 
 
+
+ALTER TABLE DEPARTMENT ADD CONSTRAINT  MINIMUM_DEPARTMENT_NAME_LENGTH CHECK((LENGTH(NAME) >= 3));
+
+ALTER TABLE PERSON ADD CONSTRAINT  MINIMUM_FIRST_NAME_LENGTH CHECK((LENGTH(FIRST_NAME) >= 2));
+
+CREATE OR REPLACE TRIGGER CHECK_DATE_OF_BIRTH
+BEFORE INSERT ON
+    PERSON
+    FOR EACH ROW
+DECLARE
+BEGIN
+    IF (:new.DATE_OF_BIRTH <= ADD_MONTHS(SYSDATE, - 120) AND :new.DATE_OF_BIRTH >= (ADD_MONTHS(SYSDATE, 1300))) = FALSE THEN
+        RAISE_APPLICATION_ERROR(-20999, 'invalid date');
+    end if;
+end;
+
+ALTER TABLE PERSON ADD CONSTRAINT CHECK_DISTRICT_LENGTH CHECK ( LENGTH(DISTRICT) >= 2 );
+ALTER TABLE PERSON ADD CONSTRAINT CHECK_DIVISION_LENGTH CHECK ( LENGTH(DISTRICT) >= 2 );
+
+ALTER TABLE PGROUP ADD CONSTRAINT GROUP_NAME_MIN_LENGTH CHECK ( LENGTH(NAME) >= 3 );
+
+ALTER TABLE UNIVERSITY ADD CONSTRAINT UNI_NAME_MIN_LENGTH CHECK ( LENGTH(NAME) >= 3 );
+
+ALTER TABLE VOTE ADD CONSTRAINT CONSTRAINT_DOWN_VAL CHECK ( DOWN = 'Y' OR DOWN = 'N' );
