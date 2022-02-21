@@ -1,80 +1,71 @@
--- auto-generated definition
-create table COMMENT_2
-(
-    CONTENT_ID NUMBER not null
-        primary key
-        references CONTENT ON DELETE CASCADE ,
-    COMMENT_OF NUMBER not null
-        references CONTENT ON DELETE CASCADE ,
-    POSTED_AT  TIMESTAMP(6) default (SYSDATE)
-)
-/
-
-;
-INSERT INTO COMMENT_2 SELECT * FROM COMMENT_;
-
-DROP TABLE COMMENT_;
-ALTER TABLE COMMENT_2 RENAME TO COMMENT_;
-
--- auto-generated definition
-create table POST2
-(
-    CONTENT_ID NUMBER not null
-        primary key
-        references CONTENT ON DELETE CASCADE ,
-    TITLE      CLOB   not null
-)
-/
-
-INSERT INTO POST2 SELECT * FROM POST;
-DROP TABLE POST;
-ALTER TABLE POST2 RENAME TO POST;
-
-DELETE FROM CONTENT WHERE CONTENT_ID = :cId;
+-- ALTER TABLE ACADEMIC_ROLE DROP COLUMN GENERATED_PASS;
+-- ALTER TABLE ACADEMIC_ROLE RENAME COLUMN PASSWORD TO TOKEN;
+-- create OR REPLACE FUNCTION CREATE_ACADEMIC_ROLE(
+--     personId number,
+--     token_ ACADEMIC_ROLE.TOKEN%TYPE
+-- )
+-- RETURN ACADEMIC_ROLE%rowtype
+-- AS
+--     academicRole ACADEMIC_ROLE%rowtype;
+-- BEGIN
+--     INSERT INTO
+--         ACADEMIC_ROLE(person_id, TOKEN)
+--     VALUES (personId, token_)
+--     RETURNING ROLE_ID, person_id, token, TIMESTAMP
+--     INTO
+--     academicRole.ROLE_ID, academicRole.person_id,
+--         academicRole.TOKEN, academicRole.TIMESTAMP;
+--     return academicRole;
+-- end;
+-- /
 
 
-create table VOTE_
-(
-    CONTENT_ID NUMBER not null
-        references CONTENT ON DELETE CASCADE ,
-    DOWN       CHAR default 'N',
-    ROLE_ID    NUMBER not null
-        references ACADEMIC_ROLE ON DELETE CASCADE ,
-    constraint UNIQUE_VOTE_
-        primary key (ROLE_ID, CONTENT_ID)
-);
+-- create OR REPLACE FUNCTION CREATE_STUDENT(
+--     personId number,
+--     batchId number,
+--     departmentId number,
+--     token_ ACADEMIC_ROLE.TOKEN%TYPE,
+--     sectionName STUDENT.section_name%TYPE,
+--     sectionRolNo STUDENT.section_roll_no%TYPE
+--
+-- )
+-- RETURN STUDENT%rowtype
+-- AS
+--     studentRow STUDENT%rowtype;
+--     academicRoleRow ACADEMIC_ROLE%rowtype;
+-- BEGIN
+--     academicRoleRow := CREATE_ACADEMIC_ROLE(personId,token_);
+--     INSERT INTO STUDENT(ROLE_ID, BATCH_ID, DEPARTMENT_ID, SECTION_NAME, SECTION_ROLL_NO)
+--     VALUES
+--     (academicRoleRow.ROLE_ID, batchId, departmentId, sectionName, sectionRolNo) returning
+--     role_id, batch_id, department_id, section_name, section_roll_no
+--     INTO
+--     studentRow.ROLE_ID, studentRow.batch_id, studentRow.department_id, studentRow.section_name ,studentRow.section_roll_no;
+--     return studentRow;
+-- end;
+-- /
 
 
-INSERT INTO VOTE_ SELECT * FROM VOTE;
-DROP TABLE VOTE;
-ALTER TABLE VOTE_ RENAME TO VOTE;
+--
+-- create OR REPLACE FUNCTION CREATE_TEACHER(
+--     personId number,
+--     token_ ACADEMIC_ROLE.TOKEN%TYPE,
+--     rank_ TEACHER.RANK%TYPE,
+--     departmentId number
+-- )
+-- RETURN TEACHER%rowtype
+-- AS
+--     teacherRow TEACHER%rowtype;
+--     academicRoleRow ACADEMIC_ROLE%rowtype;
+-- BEGIN
+--     academicRoleRow := CREATE_ACADEMIC_ROLE(personId, token_);
+--
+--     INSERT INTO TEACHER(ROLE_ID, rank, department_id)
+--     VALUES (academicRoleRow.ROLE_ID, rank_, departmentId)
+--     RETURNING ROLE_ID, rank, department_id
+--     INTO
+--     teacherRow.ROLE_ID, teacherRow.rank, teacherRow.department_id;
+--     return teacherRow;
+-- end;
+-- /
 
-SELECT * FROM ALL_TRIGGERS WHERE OWNER='C##UNICONNECT_V2';
-
- SELECT P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, T.ROLE_ID, T.RANK, P.EMAIL FROM TEACHER T JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
-                LEFT OUTER JOIN PERSON P
-            on  AR.PERSON_ID = P.PERSON_ID
-            LEFT OUTER JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
-        WHERE D.UNIVERSITY_ID = :uId AND D.DEPARTMENT_ID = :dId AND LOWER(P.FIRST_NAME || ' ' || p.LAST_NAME) LIKE LOWER(:s) FETCH NEXT 30 ROWS ONLY;
-
-SELECT P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, S.ROLE_ID, S.SECTION_NAME, S.SECTION_ROLL_NO FROM STUDENT S JOIN ACADEMIC_ROLE AR on S.ROLE_ID = AR.ROLE_ID
-JOIN SECTION SEC ON SEC.DEPARTMENT_ID = S.DEPARTMENT_ID AND SEC.BATCH_ID = S.BATCH_ID AND SEC.SECTION_NAME = S.SECTION_NAME
-JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
-JOIN BATCH B on S.BATCH_ID = B.BATCH_ID
-LEFT OUTER JOIN PERSON P on AR.PERSON_ID = P.PERSON_ID
-WHERE S.DEPARTMENT_ID = :dId AND S.BATCH_ID = :bId;
-
-SELECT S.SECTION_NAME, COUNT(DISTINCT SC.ROLE_ID) as STUDENT_COUNT FROM SECTION S JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
-    JOIN STUDENT SC ON SC.SECTION_NAME = S.SECTION_NAME AND SC.DEPARTMENT_ID = S.DEPARTMENT_ID AND SC.BATCH_ID = S.BATCH_ID
-WHERE S.DEPARTMENT_ID = :dId AND S.BATCH_ID = :bId
-AND D.UNIVERSITY_ID = :uId
-GROUP BY S.SECTION_NAME;
-
-SELECT S.ROLE_ID, P.LAST_NAME || ' ' || p.FIRST_NAME as FULL_NAME, P.EMAIL, S.SECTION_NAME, S.SECTION_ROLL_NO FROM STUDENT S
-    JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
-    JOIN ACADEMIC_ROLE AR on S.ROLE_ID = AR.ROLE_ID
-    LEFT OUTER JOIN PERSON P on AR.PERSON_ID = P.PERSON_ID
-WHERE S.DEPARTMENT_ID = :dId AND S.BATCH_ID = :bId AND S.SECTION_NAME IN :secNames AND D.UNIVERSITY_ID = :uId AND S.ROLE_ID > :rId
-AND LOWER(P.LAST_NAME || ' ' || p.FIRST_NAME) LIKE LOWER(:s)
-ORDER BY S.ROLE_ID FETCH NEXT 30 ROWS ONLY
-;

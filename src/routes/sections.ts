@@ -47,16 +47,13 @@ router.route('/')
         let content : any = [];
         for(let i = 1; i <= body.studentCount; ++i){
             let randPass = randomString.generate(9);
-            let salt = await bcrypt.genSalt()
-            let hash = await bcrypt.hash(randPass, salt)
-            
-            content.push([null, body.batchId, body.departmentId, randPass, hash, body.sectionName, i]);
+            content.push([null, body.batchId, body.departmentId, randPass, body.sectionName, i]);
         }
         query = `
             DECLARE
                 r STUDENT%ROWTYPE;
             BEGIN
-                r := CREATE_STUDENT(:1, :2, :3, :4, :5, :6, :7);
+                r := CREATE_STUDENT(:1, :2, :3, :4, :5, :6);
             END;
         `
         let result2 = await connection.executeMany(query,content, {autoCommit : true});
