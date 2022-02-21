@@ -69,3 +69,6 @@
 -- end;
 -- /
 
+-- UPDATE ACADEMIC_ROLE SET TOKEN = 'PASSWORD';
+
+

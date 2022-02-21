@@ -41,7 +41,7 @@ router.route('/claim/:roleId')
             rId : req.params.roleId,
             token : req.body.token
         }, {outFormat : oracledb.OUT_FORMAT_OBJECT});
-        
+        console.log(result);
         if(!result.rows || result.rows.length == 0) return unAuthorized(next, res);
 
         query = `

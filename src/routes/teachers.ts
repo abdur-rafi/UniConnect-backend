@@ -137,7 +137,7 @@ router.route('/details/:deptId/:after/:notClaimed')
         connection = await oracledb.getConnection();
         let query = `
         SELECT P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, T.ROLE_ID, T.RANK, P.EMAIL
-        ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+        ${ret.tableName === 'Management' ? ',AR.TOKEN' : ''}
         FROM TEACHER T JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
         LEFT OUTER JOIN PERSON P 
         on  AR.PERSON_ID = P.PERSON_ID
@@ -176,7 +176,7 @@ router.route('/search/:deptId/:name')
         connection = await oracledb.getConnection();
         let query = `
         SELECT P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, T.ROLE_ID, T.RANK, P.EMAIL
-        ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+        ${ret.tableName === 'Management' ? ',AR.TOKEN' : ''}
         FROM TEACHER T JOIN ACADEMIC_ROLE AR ON AR.ROLE_ID = T.ROLE_ID
         LEFT OUTER JOIN PERSON P 
         on  AR.PERSON_ID = P.PERSON_ID

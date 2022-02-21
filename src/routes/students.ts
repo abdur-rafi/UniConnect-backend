@@ -79,7 +79,7 @@ router.route('/:deptId/:batchId/:after/:name')
         console.log(notClaimedOnly);
         let query = `
         SELECT S.ROLE_ID, P.FIRST_NAME || ' ' || p.LAST_NAME as FULL_NAME, P.EMAIL, S.SECTION_NAME, S.SECTION_ROLL_NO
-        ${ret.tableName === 'Management' ? ',AR.GENERATED_PASS' : ''}
+        ${ret.tableName === 'Management' ? ',AR.TOKEN' : ''}
         FROM STUDENT S 
         JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
         JOIN ACADEMIC_ROLE AR on S.ROLE_ID = AR.ROLE_ID
