@@ -1,6 +1,5 @@
 import express from 'express'
 import oracledb from 'oracledb'
-import bcrypt from 'bcrypt'
 import randomString from 'randomstring';
 
 import { closeConnection, extractTableAndId, getUniQuery, invalidCookie, invalidForm, notAuthenticated, noUserFound, serverError, setLocals, unAuthorized } from '../reusableParts'
@@ -26,8 +25,6 @@ router.route('/create/')
         if(!body) return invalidForm(next, res);
         if(!body.rank || !body.departmentId) return invalidForm(next, res);
         
-        let salt = await bcrypt.genSalt()
-        let hash = await bcrypt.hash(body.password, salt)
         let query = `
         
         DECLARE
