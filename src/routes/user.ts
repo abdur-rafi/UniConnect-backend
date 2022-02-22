@@ -1,7 +1,7 @@
 import express from 'express'
 import oracledb from 'oracledb'
 import bcrypt from 'bcrypt'
-import { closeConnection, invalidCookie, invalidForm, notAuthenticated, noUserFound, serverError, setLocals } from '../reusableParts'
+import { closeConnection, extractTableAndId, invalidCookie, invalidForm, notAuthenticated, noUserFound, serverError, setLocals } from '../reusableParts'
 
 let router = express.Router()
 
@@ -360,5 +360,54 @@ router.route('/login/management/:id')
     }
 })
 
+router.route('/info')
+.get(async (req, res, next) =>{
+    
+    let ret = extractTableAndId(next, req, res);
+    if(!ret) return;
+    let connection;
+    try {
+        connection = await oracledb.getConnection();
+
+        let query;
+        if(ret.tableName == 'Management' ){
+            query = `
+                SELECT M.MANAGEMENT_ID, U.NAME as UNIVERSITY_NAME 
+                FROM MANAGEMENT M JOIN UNIVERSITY U on M.UNIVERSITY_ID = U.UNIVERSITY_ID
+                WHERE MANAGEMENT_ID = :id`
+        }
+        else if(ret.tableName === 'Teacher'){
+            query = `
+            SELECT T.ROLE_ID, D.NAME AS DEPARTMENT_NAME, U.NAME as UNIVERSITY_NAME
+            FROM TEACHER T 
+            JOIN ACADEMIC_ROLE AR on T.ROLE_ID = AR.ROLE_ID
+            JOIN DEPARTMENT D on T.DEPARTMENT_ID = D.DEPARTMENT_ID
+            JOIN UNIVERSITY U on D.UNIVERSITY_ID = U.UNIVERSITY_ID
+            WHERE T.ROLE_ID = :id`
+        }
+        else{
+            query = `
+            SELECT S.ROLE_ID, B.YEAR as BATCH_YEAR, D.NAME as DEPARTMENT_NAME, S2.SECTION_NAME, S.SECTION_ROLL_NO,U.NAME AS UNIVERSITY_NAME
+            FROM STUDENT S 
+            JOIN ACADEMIC_ROLE AR on S.ROLE_ID = AR.ROLE_ID
+            JOIN DEPARTMENT D on S.DEPARTMENT_ID = D.DEPARTMENT_ID
+            JOIN SECTION S2 on S.SECTION_NAME = S2.SECTION_NAME and S.BATCH_ID = S2.BATCH_ID and S.DEPARTMENT_ID = S2.DEPARTMENT_ID
+            JOIN BATCH B on S.BATCH_ID = B.BATCH_ID
+            JOIN UNIVERSITY U ON U.UNIVERSITY_ID = B.UNIVERSITY_ID
+            WHERE S.ROLE_ID = :id`
+        }
+        let result = await connection.execute(query, {
+            id : ret.id
+        }, {outFormat : oracledb.OUT_FORMAT_OBJECT});
+        res.status(200).json(result.rows);
+
+
+    } catch (error) {
+        console.log(error);
+        return serverError(next, res);
+    } finally {
+        closeConnection(connection);
+    }
+})
 
 export default router;  

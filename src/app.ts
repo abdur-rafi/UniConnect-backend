@@ -30,7 +30,9 @@ require('dotenv').config()
 oracledb.createPool({
 	user          : "c##uniconnect_v2",
 	password      : "uniconnect" ,
-	connectString : "localhost/orcl"
+	connectString : "localhost/orcl",
+	poolMin : 32,
+	poolMax : 32
 
 }).then(_ =>{
 	let corsOptions : CorsOptions = {
