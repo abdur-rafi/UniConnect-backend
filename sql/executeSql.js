@@ -1,201 +1,21 @@
 var oracledb = require('oracledb');
 var bcrypt = require('bcrypt');
-
+var {faker} = require('@faker-js/faker');
 oracledb.createPool({
-	user          : "c##uniconnect_v2",
-	password      : "uniconnect" ,
-	connectString : "localhost/orcl",
+    user          : "c##uniconnect_v2",
+    password      : "uniconnect" ,
+    connectString : "localhost/orcl",
     poolMax : 100
 
 }).then(async _ =>{
-    console.log("here");
-	let connection = await oracledb.getConnection();
-
-    let sampleGenerate = async ()=>{
-        let query = `SELECT UNIVERSITY_ID FROM UNIVERSITY`;
-        let result = await connection.execute(query);
-        let varsityIds = result.rows.map(r => r[0]);
-        // varsityIds = [9]
-        // batchIds = [21, 22, 23, 24]
-        // deptIds = [29, 30, 31, 32, 33]
-        console.log(varsityIds);
-        // console.log(deptIds);
-
-        // console.log(batchIds);
-        // let count = 0;
-        
-        let pass = 'password';
-                        
-        let salt = await bcrypt.genSalt()
-        let hash = await bcrypt.hash(pass, salt)
-
-        let promises = [] 
-        let countg = 0;
-        
-        varsityIds.forEach(async (vId, vi) =>{
-            
-            query = `SELECT DEPARTMENT_ID FROM DEPARTMENT WHERE UNIVERSITY_ID =:id`;
-            result = await connection.execute(query, {id : vId});
-            let deptIds = result.rows.map(r => r[0]);
-            deptIds.forEach(async (dId, di)=>{
-
-                query = `SELECT BATCH_ID FROM BATCH WHERE UNIVERSITY_ID = :id`;
-                result = await connection.execute(query, {id : vId});
-                // console.log(result);
-                let batchIds = result.rows.map(r => r[0]);
-                batchIds.forEach(async (bId, bi)=>{
-                    let jA = [1, 2, 3, 4, 5, 6,7,8, 9, 10]
-                    jA.forEach(async (j) =>{
-                        let count = vId * 100000 + dId * 1000 + bId * 10 + j;
-                        // count = ++countg;
-                    // ++count;
-                        // console.log(count)
-                        query = `
-                            BEGIN
-                                :ret := CREATE_PERSON(
-                                    :fName,
-                                    :lName,
-                                    :address,
-                                    :email,
-                                    :phoneNo,
-                                    null,
-                                    :pass
-                                );
-                            END;
-                        `;
-                        let result = await connection.execute(query,{
-                            fName : 'first' + count,
-                            lName : 'last' + count,
-                            address : 'address' + count,
-                            email : 'email' + count,
-                            phoneNo : '12345' + count,
-                            pass : hash,
-                            ret : {dir : oracledb.BIND_OUT, type : 'PERSON%ROWTYPE'}
-                        }, {autoCommit : true})
-                        // console.log(result);
-                        let personId = result.outBinds.ret.PERSON_ID;
-                        let role;
-                        if(j % 5 < 1){
-                            role = 'adm';
-                        }
-                        else if(j % 5 < 3)
-                            role = 'mod';
-                        else role = 'mem';
-                        let section = (j > 5 ) ? 'B' : 'A';
-                        let query2 = 
-                        `
-                            BEGIN
-                                :ret := CREATE_STUDENT(
-                                    :pId,
-                                    :bId,
-                                    :dId,
-                                    :gPass,
-                                    :pass,
-                                    :secName,
-                                    :secRollNo,
-                                    :uniGrRole,
-                                    :deptAllGrRole,
-                                    :deptAllSGrRole,
-                                    :deptSTypeGrRole,
-                                    :bGrRole,
-                                    :dbGrRoke,
-                                    :sGrRoke,
-                                    :uniAllStdGrRole,
-                                    :uniSTypeGrRole
-                                );
-                            END;
-                        `
-                        // console.log('here')
-                        promises.push(connection.execute(query2,{
-                            pId : personId,
-                            bId : bId,
-                            dId : dId,
-                            gPass : pass,
-                            pass : hash,
-                            secName : section,
-                            secRollNo : j % 5 + 1,
-                            uniGrRole : role,
-                            deptAllGrRole : role,
-                            deptAllSGrRole : role,
-                            deptSTypeGrRole : role,
-                            bGrRole : role,
-                            dbGrRoke : role,
-                            sGrRoke : role,
-                            uniAllStdGrRole : role,
-                            uniSTypeGrRole : role,
-                            ret : {dir : oracledb.BIND_OUT, type : 'STUDENT%ROWTYPE'},
-                            
-                        },
-                        {autoCommit : true}
-                        ))
-                        // console.log(result);
-                        // console.log(result.outBinds.ret.PERSON_ID);
-                    })
-                    
-                    
-                })
-                
-            })
-        })
-        await Promise.all(promises);
-        await connection.commit();
-    }
+    let connection = await oracledb.getConnection();
 
 
-    let generateStudent = async ()=>{
-        
-        let pass = 'password';
-        let salt = await bcrypt.genSalt()
-        let hash = await bcrypt.hash(pass, salt)
-        
-        let query = `SELECT SECTION_NAME, DEPARTMENT_ID, BATCH_ID FROM SECTION`;
-        let sections = await connection.execute(query);
-
-        
-        query = `SELECT PERSON_ID FROM PERSON`;
-        let personIds = await connection.execute(query);
-        personIds = personIds.rows.map(p => p[0])
-
-        personIds.forEach(async pId =>{
-            // let randomUni = varsityIds[Math.floor(Math.random()*varsityIds.length)];
-            let randomSec = sections.rows[Math.floor(Math.random()*sections.rows.length)];
- 
-            let query = `
-                DECLARE
-                    sCount Number;
-                BEGIN
-                    SELECT (COUNT(*) + 1) INTO sCount FROM STUDENT WHERE SECTION_NAME = :secName AND BATCH_ID = :bId AND DEPARTMENT_ID = :dId;
-                    :ret := CREATE_STUDENT(
-                        :pId,
-                        :bId,
-                        :dId,
-                        :gPass,
-                        :pass,
-                        :secName,
-                        sCount
-                    );
-                END;
-            `
-            // console.log(randomDept);
-            let res = await connection.execute(query,{
-                pId : pId,
-                bId : randomSec[2],
-                dId : randomSec[1],
-                gPass : pass,
-                pass : hash,
-                secName : randomSec[0],
-
-                ret : {dir : oracledb.BIND_OUT, type : "STUDENT%ROWTYPE"}
-            }, {autoCommit : true})
-            // console.log(res);
-        })
-        // await connection.commit();
-    }
 
 
 
     let generateTeacher = async ()=>{
-        
+
         let pass = 'password';
         let salt = await bcrypt.genSalt()
         let hash = await bcrypt.hash(pass, salt)
@@ -209,56 +29,51 @@ oracledb.createPool({
         let deptIds = await connection.execute(query);
         deptIds = deptIds.rows.map(r => r[0]);
 
-        query = `SELECT PERSON_ID FROM PERSON`;
-        let personIds = await connection.execute(query);
-        personIds = personIds.rows.map(p => p[0])
-        // console.log(varsityIds, deptIds, personIds) 
-        personIds.forEach(async pId =>{
-            // let randomUni = varsityIds[Math.floor(Math.random()*varsityIds.length)];
-            let randomDept = deptIds[Math.floor(Math.random()*deptIds.length)];
-            let query = `
-                BEGIN
-                    :ret := CREATE_TEACHER(
-                        :pId,
-                        :gPass,
-                        :pass,
-                        :rank,
-                        :dId
-                    );
-                END;
-            `
-            // console.log(randomDept);
-            let res = await connection.execute(query,{
-                pId : pId,
-                gPass : pass,
-                pass : hash,
-                rank : 'professor',
-                dId : randomDept,
-                ret : {dir : oracledb.BIND_OUT, type : "TEACHER%ROWTYPE"}
-            }, {autoCommit : true})
-            // console.log(res);
+        deptIds.forEach(async d =>{
+            let token = faker.datatype.string(9);
+
+            for(let i = 0; i < 5; ++i){
+
+                let query = `
+                        DECLARE
+                            ret TEACHER%ROWTYPE;
+                        BEGIN
+                            ret := CREATE_TEACHER(null,:token,:rank,:dId);
+                        END;
+                    `
+                let rank = 'lecturer';
+                if(i > 3) rank = 'professor';
+                else if(i > 2) rank = 'associate professor';
+                await connection.execute(query ,{
+                    token : token,
+                    dId : d,
+                    rank : rank
+                }, {autoCommit : true});
+            }
         })
         // await connection.commit();
     }
 
 
     let generatePost = async()=>{
-        let type = 'ug';
-        let query = `SELECT ROLE_ID, GROUP_ID FROM GROUP_MEMBER`;
-        let result = await connection.execute(
-            query
-        )
-        result.rows.forEach(async (row, rI) =>{
-            let roleId = row[0];
-            let group = row[1];
+        let query = `SELECT ROLE_ID FROM ACADEMIC_ROLE`;
+        let result = await connection.execute(query);
+        let roles = result.rows.map(r => r[0])
+        // console.log(result);
+        roles.forEach(async r =>{
+            query = `SELECT GROUP_ID FROM GROUP_MEMBER WHERE ROLE_ID = :gId`;
+            let result2 = await connection.execute(query, {gId : r});
+            let groups = result2.rows.map(r => r[0]);
             for(let i = 0; i < 2; ++i){
-                let title = 'this is post title';
-                let text = `Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Turpis egestas sed tempus urna et pharetra pharetra. Euismod nisi porta lorem mollis aliquam ut porttitor. Mauris ultrices eros in cursus turpis. Maecenas sed enim ut sem viverra aliquet eget. Viverra maecenas accumsan lacus vel facilisis volutpat est velit egestas. Maecenas sed enim ut sem viverra aliquet eget sit. Sit amet justo donec enim diam vulputate. Proin fermentum leo vel orci porta. Natoque penatibus et magnis dis parturient montes nascetur ridiculus. Molestie ac feugiat sed lectus vestibulum mattis ullamcorper velit sed. Aliquam nulla facilisi cras fermentum odio eu feugiat. In egestas erat imperdiet sed euismod nisi porta lorem.
-
+                let randomGroup = groups[Math.floor(Math.random() * groups.length)];
+                let title = 'This is the title of the post';
+                let text = `
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Turpis egestas sed tempus urna et pharetra pharetra. Euismod nisi porta lorem mollis aliquam ut porttitor. Mauris ultrices eros in cursus turpis. Maecenas sed enim ut sem viverra aliquet eget. Viverra maecenas accumsan lacus vel facilisis volutpat est velit egestas. Maecenas sed enim ut sem viverra aliquet eget sit. Sit amet justo donec enim diam vulputate. Proin fermentum leo vel orci porta. Natoque penatibus et magnis dis parturient montes nascetur ridiculus. Molestie ac feugiat sed lectus vestibulum mattis ullamcorper velit sed. Aliquam nulla facilisi cras fermentum odio eu feugiat. In egestas erat imperdiet sed euismod nisi porta lorem.
                 Sapien eget mi proin sed libero enim sed. Gravida quis blandit turpis cursus. Posuere morbi leo urna molestie at elementum. Cursus in hac habitasse platea dictumst quisque sagittis. At ultrices mi tempus imperdiet nulla malesuada pellentesque. Imperdiet dui accumsan sit amet. Ornare aenean euismod elementum nisi quis. Morbi tristique senectus et netus et malesuada. Et tortor consequat id porta nibh. Facilisis sed odio morbi quis. Elit ullamcorper dignissim cras tincidunt. Tortor vitae purus faucibus ornare suspendisse sed nisi lacus sed.
                 
                 Et odio pellentesque diam volutpat commodo sed egestas egestas. Eu tincidunt tortor aliquam nulla facilisi. Scelerisque fermentum dui faucibus in ornare quam. Vulputate odio ut enim blandit volutpat maecenas. Semper feugiat nibh sed pulvinar proin gravida. Scelerisque varius morbi enim nunc faucibus a pellentesque. Pretium lectus quam id leo in vitae turpis massa sed. At ultrices mi tempus imperdiet nulla malesuada pellentesque. Proin gravida hendrerit lectus a. Id porta nibh venenatis cras sed felis eget velit aliquet. Rhoncus mattis rhoncus urna neque viverra justo nec ultrices. Sagittis orci a scelerisque purus. Et odio pellentesque diam volutpat commodo sed egestas. Proin sagittis nisl rhoncus mattis rhoncus urna neque viverra justo. Pellentesque dignissim enim sit amet venenatis urna. Odio ut enim blandit volutpat maecenas volutpat blandit aliquam. Gravida cum sociis natoque penatibus et magnis dis parturient montes. Risus feugiat in ante metus dictum. Et egestas quis ipsum suspendisse ultrices gravida dictum fusce. Pretium quam vulputate dignissim suspendisse in.                
-`                
+
+                `
                 let result2 = await connection.execute(
                     `
                         BEGIN
@@ -272,48 +87,17 @@ oracledb.createPool({
                     `,
                     {
                         text : text,
-                        roleId : roleId,
+                        roleId : r,
                         title : title,
-                        groupId : group,
+                        groupId : randomGroup,
                         ret : {dir : oracledb.BIND_OUT, type : "POST%ROWTYPE"}
                     },
                     {autoCommit : true}
                 )
-                // console.log(result2.outBinds.ret); 
             }
-            
-            // console.log(groups);
         })
         // console.log(result);
     }
-    try{
-        // let r = await connection.execute(`INSERT INTO PERSON(EMAIL, PASSWORD, TIMESTAMP) VALUES ('email1', 'password', '123')`, {}, {}, (err=>{
-        //     console.log("err from callback");
-        //     throw new Error("asdf");
-        // }));
-        // let r2 = await connection.execute(
-        //     `SELECT * FROM STUDENT WHERE PERSON_ID = 601
-        //     `
-        // )
-        // let r3 = await connection.execute(
-        //     `
-        //     DECLARE
-        //         d number;
-        //     BEGIN
-        //         d := CREATE_BATCH('adsf',7,'a','pg').BATCH_ID;
-        //     end;
-        //     `
-        // )
-        // await sampleGenerate();
-        // await generateTeacher();
-
-        // console.log(r2);
-    } catch(err){
-        console.log(err);
-        console.log(err.message);
-    }
-
-
     let generateCustomGroups = async ()=>{
         let query = 'SELECT ROLE_ID FROM ACADEMIC_ROLE';
         let result = await connection.execute(query);
@@ -343,60 +127,208 @@ oracledb.createPool({
                 mRole2 : 'mod',
                 roleId3 : rows[i + 2][0],
                 mRole3 : 'mem',
-                
+
             });
             // console.log(result);
-            
+
         }
-        
+
     }
 
 
     let generateComment = async ()=>{
-        let result = await connection.execute(`
-            SELECT GROUP_ID, ROLE_ID FROM GROUP_MEMBER
-        `
-        )
-        result.rows.forEach(async r =>{
-            let roleId = r[1];
-            let groupId = r[0];
-            let posts = (await connection.execute(`
-                SELECT CONTENT_ID FROM CONTENT WHERE GROUP_ID = :gId
-            `, {gId : groupId})).rows.map(r => r[0]);
-            for(let i = 0; i < 2; ++i){
-                let randomPost = posts[Math.floor(Math.random() * posts.length)];
-                let query = `
-                DECLARE
-                    ret COMMENT_%ROWTYPE;
-                BEGIN
-                    ret := CREATE_COMMENT('this is a comment', :roleId, :commentOf);
-                END;
-                `
-                let result2 = await connection.execute(query, {
-                    roleId : roleId,
-                    commentOf : randomPost
-                }, {autoCommit : true})
-            }
+
+        let query = `SELECT ROLE_ID FROM ACADEMIC_ROLE FETCH NEXT 500 ROWS ONLY`;
+        let result = await connection.execute(query);
+        let roles = result.rows.map(r => r[0])
+        // console.log(roles);
+        roles.forEach(async r =>{
+            query = `SELECT GROUP_ID FROM GROUP_MEMBER WHERE ROLE_ID = :rId`;
+            let result2 = await connection.execute(query, {rId : r});
+            let groups = result2.rows.map(r => r[0]);
+            // console.log(groups);
+            groups.forEach(async groupId =>{
+
+                let posts = (await connection.execute(`
+                    SELECT CONTENT_ID FROM CONTENT WHERE GROUP_ID = :gId FETCH NEXT 20 ROWS ONLY
+                `, {gId : groupId})).rows.map(r => r[0]);
+                // console.log(posts.length);
+                //     // console.log("here");
+                for(let i = 0; i < 2; ++i){
+                    let randomPost = posts[Math.floor(Math.random() * posts.length)];
+                    // console.log(randomPost);
+                    let query = `
+                    DECLARE
+                        ret COMMENT_%ROWTYPE;
+                    BEGIN
+                        ret := CREATE_COMMENT('This is a comment', :roleId, :commentOf);
+                    END;
+                    `
+                    let result2 = await connection.execute(query, {
+                        roleId : r,
+                        commentOf : randomPost
+                    }, {autoCommit : true});
+                    console.log(result2);
+                }
+
+            })
+
 
         })
-        
+
+        // let result = await connection.execute(`
+        //     SELECT GROUP_ID, ROLE_ID FROM GROUP_MEMBER
+        // `
+        // )
+        // result.rows.forEach(async r =>{
+        //     let roleId = r[1];
+        //     let groupId = r[0];
+        //     let posts = (await connection.execute(`
+        //         SELECT CONTENT_ID FROM CONTENT WHERE GROUP_ID = :gId
+        //     `, {gId : groupId})).rows.map(r => r[0]);
+        //     // console.log("here");
+        //     for(let i = 0; i < 2; ++i){
+        //         let randomPost = posts[Math.floor(Math.random() * posts.length)];
+        //         let query = `
+        //         DECLARE
+        //             ret COMMENT_%ROWTYPE;
+        //         BEGIN
+        //             ret := CREATE_COMMENT('This is a comment', :roleId, :commentOf);
+        //         END;
+        //         `
+        //         let result2 = await connection.execute(query, {
+        //             roleId : roleId,
+        //             commentOf : randomPost
+        //         }, {autoCommit : true});
+        //         console.log(result2);
+        //     }
+
+        // })
+
     }
-    
+
+
+    let generatePerson = async ()=>{
+        let divisions = ['Dhaka', 'Khulna', 'Rajshahi', 'Sylhet'];
+        let districts = [['Dhaka', 'Faridpur', 'Gazipur', 'Gopalganj', 'Rajbari'],
+            ['Bagerhat, Jessore, Khulna, Kushtia, Narail, Satkhira'],
+            ['Rajshahi', 'Natore', 'Dinajpur', 'Sirajganj', 'Pabna'],
+            ['Habiganj', 'Moulvibazar', 'Sylhet']
+        ];
+        let postalCodes = [1000, 1208, 1206, 1211, 1214];
+        for(let i = 0; i < 3000; ++i){
+            let fName = faker.name.firstName();
+            let lName = faker.name.lastName();
+            let email = faker.internet.email();
+            let houseAddr = faker.address.streetAddress();
+            // let dateOfBirth = faker.date.between('2020-01-01T00:00:00.000Z', '2030-01-01T00:00:00.000Z')
+            let dateOfBirht = '01/01/1995';
+            let password = 'password';
+            let salt = await bcrypt.genSalt();
+            let hash = await bcrypt.hash(password, salt)
+            let phoneNo = null;
+            let randomIndx1 = Math.floor(Math.random() * divisions.length);
+            let randomDiv = divisions[randomIndx1];
+            let ranodmInd2 = Math.floor(Math.random() * divisions[randomIndx1].length);
+            let randomDistr = districts[randomIndx1][ranodmInd2];
+            let randomPostal = postalCodes[Math.floor(Math.random() * postalCodes.length)];
+            let query = `
+                DECLARE
+                    d PERSON%ROWTYPE;
+                BEGIN
+                    d := CREATE_PERSON(
+                        :fName,
+                        :lName,
+                        :addr,
+                        :email,
+                        :phone,
+                        TO_DATE(:dBirth,'dd/mm/yyyy'),
+                        :pass,
+                        :distr,
+                        :div,
+                        :postal
+                    );
+                END;
+            `
+            let res = await connection.execute(query, {
+                fName : fName,
+                lName : lName,
+                addr : houseAddr,
+                email : email,
+                phone : null,
+                dBirth : dateOfBirht,
+                pass : hash,
+                div : randomDiv,
+                distr : randomDistr,
+                postal : randomPostal
+            }, {autoCommit : true});
+            // console.log(res);
+
+        }
+    }
+
+    let generateVote = async ()=>{
+
+        let query = `SELECT ROLE_ID FROM ACADEMIC_ROLE FETCH NEXT 500 ROWS ONLY`;
+        let result = await connection.execute(query);
+        let roles = result.rows.map(r => r[0])
+        // console.log(roles);
+        roles.forEach(async r =>{
+            query = `SELECT GROUP_ID FROM GROUP_MEMBER WHERE ROLE_ID = :rId`;
+            let result2 = await connection.execute(query, {rId : r});
+            let groups = result2.rows.map(r => r[0]);
+            // console.log(groups);
+            groups.forEach(async groupId =>{
+
+                let posts = (await connection.execute(`
+                    SELECT CONTENT_ID FROM CONTENT WHERE GROUP_ID = :gId FETCH NEXT 20 ROWS ONLY
+                `, {gId : groupId})).rows.map(r => r[0]);
+                // console.log(posts.length);
+                //     // console.log("here");
+                for(let i = 0; i < 2; ++i){
+                    let randomPost = posts[Math.floor(Math.random() * posts.length)];
+                    // console.log(randomPost);
+                    let query = `
+                    DECLARE
+                        ret Number;
+                    BEGIN
+                        ret := TOGGLE_VOTE(:roleId, :contentId, 'N');
+                    END;
+                    `
+                    let result2 = await connection.execute(query, {
+                        roleId : r,
+                        contentId : randomPost
+                    }, {autoCommit : true});
+                    console.log(result2);
+                }
+
+            })
+
+
+        })
+    }
+
+
+    let assingToRoles = async ()=>{
+        let query = `SELECT ROLE_ID FROM ACADEMIC_ROLE WHERE PERSON_ID IS NULL`;
+        let roles = (await connection.execute(query)).rows.map(r => r[0]);
+        query = `SELECT PERSON_ID FROM PERSON`;
+        let personIds = (await connection.execute(query)).rows.map(r => r[0]);
+        roles.sort(() => Math.random() - 0.5);
+        for(let i = 0; i < Math.min(personIds.length, roles.length); ++i){
+            query = `UPDATE ACADEMIC_ROLE SET PERSON_ID = :pId where ROLE_ID = :rId`;
+            await connection.execute(query , {
+                pId : personIds[i],
+                rId : roles[i]
+            }, {autoCommit : true})
+        }
+    }
+
+    // await generatePerson();
     // await generateTeacher();
-
-    // await sampleGenerate();
-
     // await generatePost();
-    await generateComment();
-    // await generateCustomGroups();
     // await generateComment();
-    // await connection.commit();
-
-    
-    // query = `SELECT SECTION_NAME, DEPARTMENT_ID, BATCH_ID FROM SECTION`;
-    // let sections = await connection.execute(query);
-    // await generateStudent();
-    // console.log(sections);
-    // connection.close();
+    // await generateVote();
+    // await assingToRoles();
 
 })
