@@ -92,7 +92,8 @@ router.route('/')
             let result = await connection.execute(query, {
                 rId: ret.id
             }, {
-                outFormat: oracledb.OUT_FORMAT_OBJECT
+                outFormat: oracledb.OUT_FORMAT_OBJECT,
+                autoCommit: true
             });
 
             return res.status(200).json(result.rows);
