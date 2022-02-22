@@ -61,7 +61,7 @@ router.route('/')
     try{
         connection = await oracledb.getConnection();
         let query = `           
-            SELECT R.REQUEST_TO, G.GROUP_ID, G.NAME as GROUP_NAME, REQ_FROM.ROLE_ID,
+            SELECT R.REQUEST_ID, R.REQUEST_TO, G.GROUP_ID, G.NAME as GROUP_NAME, REQ_FROM.ROLE_ID,
             P.FIRST_NAME || ' ' || P.LAST_NAME as REQUEST_FROM_USER_NAME,
             DS.NAME AS STUDENT_DEPARTMENT_NAME, US.NAME as STUDENT_UNIVERSITY_NAME,
             DT.NAME AS TEACHER_DEPARTMENT_NAME, UT.NAME as TEACHER_UNIVERSITY_NAME
@@ -131,6 +131,7 @@ router.route('/:requestId/:accept')
             reqId : req.params.requestId,
             roleId : ret.id
         }, {
+            autoCommit : true,
             outFormat : oracledb.OUT_FORMAT_OBJECT
         });
         return res.status(200).json(result.rows);

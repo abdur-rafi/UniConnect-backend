@@ -216,7 +216,7 @@ oracledb.createPool({
                             ['Habiganj', 'Moulvibazar', 'Sylhet']
                     ];
         let postalCodes = [1000, 1208, 1206, 1211, 1214];
-        for(let i = 0; i < 7000; ++i){
+        for(let i = 0; i < 1000; ++i){
             let fName = faker.name.firstName();
             let lName = faker.name.lastName();
             let email = faker.internet.email();
@@ -314,7 +314,7 @@ oracledb.createPool({
         let roles = (await connection.execute(query)).rows.map(r => r[0]);
         query = `SELECT PERSON_ID FROM PERSON`;
         let personIds = (await connection.execute(query)).rows.map(r => r[0]);
-        personIds.sort(() => Math.random() - 0.5);
+        roles.sort(() => Math.random() - 0.5);
         for(let i = 0; i < Math.min(personIds.length, roles.length); ++i){
             query = `UPDATE ACADEMIC_ROLE SET PERSON_ID = :pId where ROLE_ID = :rId`;
             await connection.execute(query , {
@@ -330,5 +330,5 @@ oracledb.createPool({
     // generateComment();
     // generateVote();
 
-    // assingToRoles();
+    assingToRoles();
 })
