@@ -32,7 +32,7 @@ oracledb.createPool({
     password: "uniconnect",
     connectString: "localhost/orcl",
     poolMax       : 50,
-    poolMin       : 10
+    poolMin       : 20
 
 }).then(_ => {
     let corsOptions: CorsOptions = {
