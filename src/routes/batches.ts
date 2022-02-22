@@ -98,11 +98,11 @@ router.route('/')
             SELECT 
                 B.BATCH_ID, 
                 B.NAME as BATCH_NAME,
-                B.YEAR as YEAR,  
-                D.NAME as DEPARTMENT_NAME,  
+                B.YEAR as BATCH_YEAR,  
+                D.NAME as DEPT_NAME,  
                 D.DEPARTMENT_ID AS DEPT_ID,
                 B.BATCH_TYPE AS BATCH_TYPE,
-                COUNT(S.ROLE_ID) as STUDENT_COUNT,
+                COUNT(DISTINCT S.ROLE_ID) as STUDENT_COUNT,
                 (
                     SELECT 
                         COUNT(SECTION_NAME) 
@@ -169,7 +169,7 @@ router.route('/:batchId/')
             B.NAME as BATCH_NAME,
             B.YEAR as BATCH_YEAR, 
             D.NAME as DEPT_NAME, 
-            COUNT(S.ROLE_ID) as STUDENT_COUNT,
+            COUNT(DISTINCT S.ROLE_ID) as STUDENT_COUNT,
             (
                 SELECT 
                     COUNT(SECTION_NAME) 

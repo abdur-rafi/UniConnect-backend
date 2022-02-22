@@ -194,7 +194,7 @@ router.route('/signup')
     fName = fName.trim();
     lName = lName.trim();
     houseAdress = houseAdress.trim();
-    email = email.trim();
+    email = email.trim(); 
     phoneNo = phoneNo.trim();
     dateOfBirth = dateOfBirth.trim();
     division = division.trim();

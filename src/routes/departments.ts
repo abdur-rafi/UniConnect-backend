@@ -111,7 +111,7 @@ router.route('/')
                         AND 
                         SC.DEPARTMENT_ID = D.DEPARTMENT_ID
                 ) as SECTION_COUNT,
-                COUNT(S.ROLE_ID) as STUDENT_COUNT
+                COUNT(DISTINCT S.ROLE_ID) as STUDENT_COUNT
             FROM 
                 DEPARTMENT D
             LEFT OUTER JOIN
@@ -143,7 +143,7 @@ router.route('/')
                 (SELECT COUNT(*) FROM STUDENT WHERE DEPARTMENT_ID = D.DEPARTMENT_ID) as STUDENT_COUNT,
                 (SELECT COUNT(*) FROM TEACHER WHERE DEPARTMENT_ID = D.DEPARTMENT_ID) as TEACHER_COUNT,
                 BD.BATCH_ID, B.NAME AS BATCH_NAME,B.YEAR,D.DEPT_CODE,
-                COUNT(*) AS BATCH_STUDENTS_COUNT
+                COUNT(DISTINCT S.ROLE_ID) AS BATCH_STUDENTS_COUNT
 
             FROM 
                 DEPARTMENT D
