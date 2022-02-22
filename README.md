@@ -16,10 +16,10 @@
    2. typescript should be installed if not already installed. to install typescript globally, run <b>"npm install -g typescript"</b>
    3. use terminal inside the project and run <b>'npm install'</b>
    4. ensure database is ready. dump database file is added accordingly
-   5. go to app.ts file and update user and password according to the oracle database user
+   5. go to <b>app.ts</b> file and update <b>user</b> and <b>password</b> according to the oracle database user
    6. create a .env file at the root folder. In this file, add an arbitrary value for variable <b>COOKIE_SECRET</b>
       for example:  <b>COOKIE_SECRET="hhgfjhgfdgasdas"</b>
-   7. using the terminal inside project, run <b>'tsc -watch'</b> and open another terminal and run <b>'npm run dev'</b>.
+   7. using the terminal inside project, run <b>'tsc --watch'</b> and open another terminal and run <b>'npm run dev'</b>.
       This project should work perfectly now on "http://localhost:3000"
 
 ## Languages, Tools and Frameworks:
