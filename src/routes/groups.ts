@@ -21,9 +21,9 @@ router.route('/custom')
             let query = `
                 SELECT G.GROUP_ID,
                        G.NAME,
-                       COUNT(GM2.ROLE_ID)  as GROUP_MEMBERS_COUNT,
+                       COUNT(DISTINCT GM2.ROLE_ID)  as GROUP_MEMBERS_COUNT,
                        GM1.MEMBER_ROLE,
-                       COUNT(P.CONTENT_ID) as GROUP_POSTS_COUNT
+                       COUNT(DISTINCT P.CONTENT_ID) as GROUP_POSTS_COUNT
                 FROM GROUP_MEMBER GM1
                          JOIN PGROUP G on GM1.GROUP_ID = G.GROUP_ID
                          JOIN GROUP_MEMBER GM2 ON GM2.GROUP_ID = G.GROUP_ID
@@ -116,9 +116,9 @@ router.route('/defaults')
 
                 SELECT G.GROUP_ID,
                        G.NAME,
-                       COUNT(GM2.ROLE_ID)  as GROUP_MEMBERS_COUNT,
+                       COUNT(DISTINCT GM2.ROLE_ID)  as GROUP_MEMBERS_COUNT,
                        GM1.MEMBER_ROLE,
-                       COUNT(P.CONTENT_ID) as GROUP_POSTS_COUNT
+                       COUNT(DISTINCT P.CONTENT_ID) as GROUP_POSTS_COUNT
                 FROM GROUP_MEMBER GM1
                          JOIN PGROUP G on GM1.GROUP_ID = G.GROUP_ID
                          JOIN GROUP_MEMBER GM2 ON GM2.GROUP_ID = G.GROUP_ID

@@ -63,8 +63,8 @@ router.route('/claim/:roleId')
             }, {
                 signed: true
             });
-            return res.status(200).json({message: "role claimed successfully"});
 
+            return res.status(200).json({message: "role claimed successfully"});
         } catch (error) {
             console.log(error);
             return serverError(next, res);

@@ -60,7 +60,8 @@ router.route('/')
                 r := CREATE_STUDENT(:1, :2, :3, :4, :5, :6);
             END;
         `
-            await connection.executeMany(query, content, {autoCommit: true});
+            let result2 = await connection.executeMany(query, content, {autoCommit: true});
+            return res.status(200).json({"message": "success"});
         } catch (error) {
             console.log(error);
             return serverError(next, res);

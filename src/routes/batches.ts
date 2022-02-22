@@ -99,7 +99,7 @@ router.route('/')
                        B.YEAR           as BATCH_YEAR,
                        B.BATCH_TYPE     as BATCH_TYPE,
                        D.NAME           as DEPT_NAME,
-                       COUNT(S.ROLE_ID) as STUDENT_COUNT,
+                       COUNT(DISTINCT S.ROLE_ID) as STUDENT_COUNT,
                        (
                            SELECT COUNT(SECTION_NAME)
                            FROM SECTION SC
@@ -155,7 +155,7 @@ router.route('/:batchId/')
                        B.YEAR           as BATCH_YEAR,
                        D.NAME           as DEPT_NAME,
                        D.DEPARTMENT_ID  as DEPT_ID,
-                       COUNT(S.ROLE_ID) as STUDENT_COUNT,
+                       COUNT(DISTINCT S.ROLE_ID) as STUDENT_COUNT,
                        (
                            SELECT COUNT(SECTION_NAME)
                            FROM SECTION SC

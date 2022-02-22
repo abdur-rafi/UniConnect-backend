@@ -43,9 +43,9 @@ router.route('/all/')
 
                 FROM (
                          SELECT C.CONTENT_ID,
-                                COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
-                                COUNT(UNIQUE VU.ROLE_ID)     as UPVOTE_COUNT,
-                                COUNT(UNIQUE VD.ROLE_ID)     as DOWNVOTE_COUNT
+                                COUNT(DISTINCT CMT.CONTENT_ID) as COMMENT_COUNT,
+                                COUNT(DISTINCT VU.ROLE_ID)     as UPVOTE_COUNT,
+                                COUNT(DISTINCT VD.ROLE_ID)     as DOWNVOTE_COUNT
                          FROM GROUP_MEMBER GM
                                   JOIN PGROUP G on GM.GROUP_ID = G.GROUP_ID
                                   JOIN CONTENT C ON C.GROUP_ID = G.GROUP_ID
@@ -149,9 +149,9 @@ router.route('/:groupId/:from/:direction/:count/:order')
 
                 FROM (
                          SELECT C.CONTENT_ID,
-                                COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
-                                COUNT(UNIQUE VU.ROLE_ID)     as UPVOTE_COUNT,
-                                COUNT(UNIQUE VD.ROLE_ID)     as DOWNVOTE_COUNT
+                                COUNT(DISTINCT CMT.CONTENT_ID) as COMMENT_COUNT,
+                                COUNT(DISTINCT VU.ROLE_ID)     as UPVOTE_COUNT,
+                                COUNT(DISTINCT VD.ROLE_ID)     as DOWNVOTE_COUNT
                          FROM GROUP_MEMBER GM
                                   JOIN PGROUP G on GM.GROUP_ID = G.GROUP_ID
                                   JOIN CONTENT C ON C.GROUP_ID = G.GROUP_ID
@@ -235,9 +235,9 @@ router.route('/:contentId')
 
                 FROM (
                          SELECT C.CONTENT_ID,
-                                COUNT(UNIQUE CMT.CONTENT_ID) as COMMENT_COUNT,
-                                COUNT(UNIQUE VU.ROLE_ID)     as UPVOTE_COUNT,
-                                COUNT(UNIQUE VD.ROLE_ID)     as DOWNVOTE_COUNT
+                                COUNT(DISTINCT CMT.CONTENT_ID) as COMMENT_COUNT,
+                                COUNT(DISTINCT VU.ROLE_ID)     as UPVOTE_COUNT,
+                                COUNT(DISTINCT VD.ROLE_ID)     as DOWNVOTE_COUNT
                          FROM CONTENT C
                                   JOIN POST P ON P.CONTENT_ID = C.CONTENT_ID
                                   LEFT OUTER JOIN COMMENT_ CMT ON CMT.COMMENT_OF = P.CONTENT_ID

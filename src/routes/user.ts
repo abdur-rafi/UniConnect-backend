@@ -172,7 +172,7 @@ router.route('/signup')
     .post(async (req, res, next) => {
         let fName: string = req.body.first_name;
         let lName: string = req.body.last_name;
-        let houseAdress: string = req.body.house_address;
+        let houseAddress: string = req.body.house_address;
         let district = req.body.district;
         let division = req.body.division;
         let postalCode = req.body.postal_code;
@@ -182,12 +182,12 @@ router.route('/signup')
         let password: string = req.body.password;
         console.log(req.body);
 
-        if (!(fName && lName && houseAdress && email && phoneNo && dateOfBirth && password && district && division && postalCode)) {
+        if (!(fName && lName && houseAddress && email && phoneNo && dateOfBirth && password && district && division && postalCode)) {
             return invalidForm(next, res);
         }
         fName = fName.trim();
         lName = lName.trim();
-        houseAdress = houseAdress.trim();
+        houseAddress = houseAddress.trim();
         email = email.trim();
         phoneNo = phoneNo.trim();
         dateOfBirth = dateOfBirth.trim();
@@ -195,12 +195,9 @@ router.route('/signup')
         district = district.trim();
         postalCode = postalCode.trim();
 
-        // password = password.trim();
-
         if (fName.length < 2 || lName.length < 2 || email.length < 4 || password.length < 5) {
             return invalidForm(next, res);
         }
-
 
         let salt = await bcrypt.genSalt()
         let hash = await bcrypt.hash(password, salt)
@@ -242,7 +239,7 @@ router.route('/signup')
                 {
                     fName: fName,
                     lName: lName,
-                    address: houseAdress,
+                    address: houseAddress,
                     email: email,
                     phoneNo: phoneNo,
                     dateOfBirth: dateOfBirth,
@@ -272,7 +269,6 @@ router.route('/signup')
                         return serverError(next, res);
 
                     } else {
-                        // console.log(result.outBinds.ret);
                         res.cookie('user', {
                             personId: result.outBinds.ret.PERSON_ID
                         }, {
@@ -280,9 +276,7 @@ router.route('/signup')
                         });
 
                         res.status(200).json(result.outBinds.ret);
-
                     }
-
                 })
             )
         } catch (error) {

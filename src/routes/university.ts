@@ -22,7 +22,7 @@ router.route('/:id/depts/')
                            B.NAME                                                                 AS BATCH_NAME,
                            B.YEAR,
                            D.DEPT_CODE,
-                           COUNT(*)                                                               AS BATCH_STUDENTS_COUNT
+                           COUNT(DISTINCT S.ROLE_ID)                                              AS BATCH_STUDENTS_COUNT
 
                     FROM DEPARTMENT D
                              FULL OUTER JOIN
