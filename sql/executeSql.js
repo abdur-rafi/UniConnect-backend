@@ -216,7 +216,7 @@ oracledb.createPool({
                             ['Habiganj', 'Moulvibazar', 'Sylhet']
                     ];
         let postalCodes = [1000, 1208, 1206, 1211, 1214];
-        for(let i = 0; i < 1000; ++i){
+        for(let i = 0; i < 8000; ++i){
             let fName = faker.name.firstName();
             let lName = faker.name.lastName();
             let email = faker.internet.email();
@@ -329,6 +329,6 @@ oracledb.createPool({
     // generatePost();
     // generateComment();
     // generateVote();
-
-    assingToRoles();
+    // assingToRoles();
+    
 })
