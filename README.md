@@ -8,8 +8,7 @@
 
  <p align="center">
    This is the backend of CSE 216 database term project <b>UniConnect</b> By <b>Syed Jarullah Hisham (1805004)</b> & <b>Abdur Rafi (1805008)</b> <br />
-   <b>To see frontend, please use this link:&nbsp;&nbsp;[UniConnect FrontEnd](https://github.com/hishamcse/UniConnect-FrontEnd) </b>
-  </p>
+   <b>To see frontend, please use this link:</b></p>[UniConnect FrontEnd](https://github.com/hishamcse/UniConnect-FrontEnd)
 
 ## Configuring backend:
    1. clone this repository or download the repository as zip and unzip it
