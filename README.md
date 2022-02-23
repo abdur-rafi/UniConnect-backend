@@ -22,28 +22,28 @@
 ## Configuring backend:
    1. clone this repository or download the repository as zip and unzip it
    2. typescript should be installed if not already installed. to install typescript globally, run 
-         
+       ```bash
          npm install -g typescript
-         
+       ```
    3. use terminal inside the project and run
-   
+       ```bash
          npm install
-   
+       ```
    4. ensure database is ready. dump database file is added accordingly
    5. go to <b>app.ts</b> file and update <b>user</b> and <b>password</b> according to the oracle database user
    6. create a .env file at the root folder. In this file, add an arbitrary value for variable <b>COOKIE_SECRET</b>
       for example:  
-      
-         COOKIE_SECRET="hhgfjhgfdgasdas"
-      
+      ```bash
+        COOKIE_SECRET="hhgfjhgfdgasdas"
+      ```
    7. using the terminal inside project, run 
-      
-         tsc --watch
-      
+      ```bash
+        tsc --watch
+      ```
       open another terminal and run
-      
-         npm run dev
-      
+      ```bash
+        npm run dev
+      ```
       This project should work perfectly now on "http://localhost:3000"
 
 ## Languages, Tools and Frameworks:<a name="tools"></a>
