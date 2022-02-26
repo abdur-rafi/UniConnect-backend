@@ -13,6 +13,7 @@
    * [ERD](#erd)
    * [Database](#database)
    * [Features](#features)
+   * [Video Demonstration](#video-demonstration)
    * [Contributors](#contribute)
    * [Supervisor](#super)
 
@@ -82,6 +83,9 @@ typescript, nodejs, oracledb, express
    also cast their upvote and downvote. Thus, the discussion between the members will go on
    * there is also a newsfeed feature. after logging in, a student or teacher can see recent posts from different groups where he is added
    * lastly he can also view the details of students and teachers of various departments and can also search profile by entering their names
+  
+## Video Demonstration:<a name="#video-demonstration"></a>
+   * [Demo (Youtube)](https://www.youtube.com/watch?v=zL0V96N6PM8)
 
 ## Contributors:<a name="contribute"></a>
    * [Syed Jarullah Hisham (1805004)](https://hishamcse.github.io/)
@@ -93,5 +97,3 @@ typescript, nodejs, oracledb, express
      Department Of Computer Science And Engineering <br />
      Bangladesh University Of Engineering and Technology
      
-
-#### A video demonstrating all these will be added very soon
