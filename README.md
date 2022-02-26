@@ -14,6 +14,7 @@
    * [Database](#database)
    * [Features](#features)
    * [Video Demonstration](#video-demonstration)
+   * [API Reference](#api-reference)
    * [Contributors](#contribute)
    * [Supervisor](#super)
 
@@ -56,23 +57,23 @@ typescript, reactjs, nextjs, scss, react-bootstrap, material ui, core ui
 typescript, nodejs, oracledb, express
 
 ## ERD<a name="erd"></a>
-[ERD](https://github.com/abdur-rafi/UniConnect-backend/blob/master/ERD/erd.svg)
+* [ERD](https://github.com/abdur-rafi/UniConnect-backend/blob/master/ERD/erd.svg)
 
 ## Database<a name="database"></a>
-1. [Tables](https://github.com/abdur-rafi/UniConnect-backend/tree/master/Database/Tables)
-2. [PL SQL Functions](https://github.com/abdur-rafi/UniConnect-backend/tree/master/Database/PL%20SQL%20Functions)
-3. [Triggers](https://github.com/abdur-rafi/UniConnect-backend/tree/master/Database/Triggers)
+* [Tables](https://github.com/abdur-rafi/UniConnect-backend/tree/master/Database/Tables)
+* [PL SQL Functions](https://github.com/abdur-rafi/UniConnect-backend/tree/master/Database/PL%20SQL%20Functions)
+* [Triggers](https://github.com/abdur-rafi/UniConnect-backend/tree/master/Database/Triggers)
 
 ## Features:<a name="features"></a>
-1. signup for an account 
-2. login as one of these three roles - management, student, teacher. One can also claim role in case he has roleid and token provided by admin 
-3. having a management role of an university, 
-      * one can create new department in a university
-      * assign any batch with that department
-      * create new student and add them at appropriate batch and department
-      * create new teacher in a department
-      * see the details of the profiles of all students and teacher of his university
-4. having a student or teacher role,
+* signup for an account 
+* login as one of these three roles - management, student, teacher. One can also claim role in case he has roleid and token provided by admin 
+* having a management role of an university, 
+   * one can create new department in a university
+   * assign any batch with that department
+   * create new student and add them at appropriate batch and department
+   * create new teacher in a department
+   * see the details of the profiles of all students and teacher of his university
+* having a student or teacher role,
    * one will be added to default groups accordingly
    * default groups will be those matching his department, batch, university and roles. 
       For example- a student of BUET CSE 2018 Section A will be added to the groups -> BUET, BUET-UG, CSE-UG, CSE-ALL, Batch 2018, CSE-18, CSE-18-A and so on
@@ -84,8 +85,11 @@ typescript, nodejs, oracledb, express
    * there is also a newsfeed feature. after logging in, a student or teacher can see recent posts from different groups where he is added
    * lastly he can also view the details of students and teachers of various departments and can also search profile by entering their names
   
-## Video Demonstration:<a name="#video-demonstration"></a>
+## Video Demonstration:<a name="video-demonstration"></a>
    * [Demo (Youtube)](https://www.youtube.com/watch?v=zL0V96N6PM8)
+   
+## API Reference:<a name="api-reference"></a>
+   * [Full API Reference](https://documenter.getpostman.com/view/15751570/UVkqqZyg)
 
 ## Contributors:<a name="contribute"></a>
    * [Syed Jarullah Hisham (1805004)](https://hishamcse.github.io/)
